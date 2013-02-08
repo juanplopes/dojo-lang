@@ -69,7 +69,8 @@ class Program(object):
 
     def __call__(self, scope = None):
         result = None
+        scope = scope or Scope()
         for expr in self.exprs:
-            result = expr(scope or Scope())
+            result = expr(scope)
         return result
 

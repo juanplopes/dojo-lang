@@ -53,8 +53,7 @@ def parse(expr):
             args = []
             if not tokens.peek('RPAREN'):
                 args.append(primary())
-                while not tokens.peek('RPAREN'):
-                    tokens.next('COMMA')
+                while tokens.maybe('COMMA'):
                     args.append(primary())
             return tokens.following(MethodCall(e, args), 'RPAREN')
         
@@ -67,7 +66,7 @@ def parse(expr):
             LPAREN = lambda x: tokens.following(adds(), 'RPAREN')) 
         
  
-    return Program([tokens.following(program(), 'EOF')])
+    return tokens.following(program(), 'EOF')
     
 if __name__ == '__main__':
     print parse(sys.argv[1])(Scope())
