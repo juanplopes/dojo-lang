@@ -5,19 +5,20 @@ from ast import *
 class Token(object):
     EOF = lambda p: Token('EOF', '', p)
  
-    def __init__(self, name, image, begin, end):
+    def __init__(self, name, image, begin, end, lf):
         self.name = name
         self.image = image
         self.begin = begin
         self.end = end
+        self.lf = lf
  
 class Scanner(object):
     def __init__(self, expr, *symbols, **named):
         self.tokens = {}
         for name, pattern in named.items():
-            self.tokens[name] = re.compile('^[ \t\r\f\v]*' + pattern)
+            self.tokens[name] = re.compile('^\s*' + pattern)
         for symbol in symbols:
-            self.tokens[symbol] = re.compile('^[ \t\r\f\v]*' + re.escape(symbol))
+            self.tokens[symbol] = re.compile('^\s*' + re.escape(symbol))
 
         self.expr = expr
         self.pos = 0
@@ -25,17 +26,23 @@ class Scanner(object):
     def match(self, name):
         match = re.match(self.tokens[name], self.expr[self.pos:])
         if match:
-            return Token(name, match.group().strip(), self.pos, self.pos+len(match.group()))
+            s = match.group()
+            return Token(name, s.strip(), self.pos, self.pos+len(s), '\n' in s)
  
-    def peek(self, *allowed):
+    def check(self, matched, **opts):
+        if not matched: return None
+        if opts.get('stop_on_lf') and matched.lf: return None
+        return matched
+ 
+    def peek(self, *allowed, **opts):
         token = None
         for matched in map(self.match, allowed):
-            if matched and (not token or token.end < matched.end):
+            if self.check(matched, **opts) and (not token or token.end < matched.end):
                 token = matched
         return token
  
-    def next(self, *allowed):
-        token = self.peek(*self.tokens)
+    def next(self, *allowed, **opts):
+        token = self.peek(*self.tokens, **opts)
  
         if not token:
             raise Exception("Cannot understand expression at position {}: '{}'".format( 
@@ -48,20 +55,24 @@ class Scanner(object):
         self.pos = token.end
         return token
       
-    def maybe(self, *allowed):
-        if self.peek(*allowed):
-            return self.next(*allowed)
+    def maybe(self, *allowed, **opts):
+        if self.peek(*allowed, **opts):
+            return self.next(*allowed, **opts)
+    
+    def ignore(self, *allowed, **opts):
+        self.at_least_one(*allowed, **opts)
+        return True
        
-    def at_least_one(self, *allowed):
+    def at_least_one(self, *allowed, **opts):
         token = None
-        while self.peek(*allowed):
-            token = self.next(*allowed)
+        while self.peek(*allowed, **opts):
+            token = self.next(*allowed, **opts)
         return token
     
-    def following(self, value, *allowed):
-        self.next(*allowed)
+    def following(self, value, *allowed, **opts):
+        self.next(*allowed, **opts)
         return value
         
-    def expect(self, actions):
-        token = self.next(*actions.keys())
+    def expect(self, actions, **opts):
+        token = self.next(*actions.keys(), **opts)
         return actions[token.name](token)

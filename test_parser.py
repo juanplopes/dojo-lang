@@ -24,15 +24,42 @@ class ParserTestCase(unittest.TestCase):
         program = parse('-2')
         self.assertEquals(-2, program())
 
+    def test_unaries_ambiguity(self):
+        program = parse('4\n-2')
+        self.assertEquals(-2, program())
+
+    def test_unaries_ambiguity_not(self):
+        program = parse('4,-2')
+        self.assertEquals(-2, program())
+
     def test_precedence(self):
         self.assertEquals(14, parse('2+3*4')())
 
     def test_explicit_precedence(self):
         self.assertEquals(20, parse('(2+3)*4')())
 
+    def test_set_variable_is_also_expression(self):
+        self.assertEquals(20, parse('a=(2+3)*4,c=b=a')())
+
+    def test_set_variable_on_global_scope_will_change_variables(self):
+        scope = Scope()
+        self.assertEquals(20, parse('a=(2+3)*4,c=b=a')(scope))
+        self.assertEquals(20, scope.get('a'))
+        self.assertEquals(20, scope.get('b'))
+        self.assertEquals(20, scope.get('c'))
+
     def test_callable(self):
         scope = Scope({'add':lambda x, y:x+y})
         self.assertEquals(14, parse('2*add(5, 2)')(scope))
+
+    def test_callable_ambiguity(self):
+        scope = Scope({'add':lambda x, y:x+y})
+        self.assertEquals(2, parse('add\n(5, 2)')(scope))
+
+    def test_callable_ambiguity_not(self):
+        scope = Scope({'add':lambda x, y:x+y})
+        self.assertEquals(2, parse('add,(5, 2)')(scope))
+
 
     def test_callable_with_missing_comma(self):
         scope = Scope({'add':lambda x, y:x+y})
@@ -41,6 +68,22 @@ class ParserTestCase(unittest.TestCase):
     def test_callable_with_non_primary(self):
         scope = Scope({'add':lambda x, y:x+y})
         self.assertEquals(20, parse('2*add(2+2, 3+3)')(scope))
+
+    def test_call_functions_multiline(self):
+        scope = Scope({'add':lambda a,b,c:a+b+c})
+        self.assertEquals(18, parse("""add(
+            2+2, 
+            3+3
+            ,4+4)""")(scope))
+
+    def test_call_functions_multiline(self):
+        scope = Scope({'add':lambda a,b,c:a+b+c})
+        self.assertEquals(18, parse("""add(
+            2+2, 
+            3+3
+            ,4+4)""")(scope))
+
+
 
     def test_multi_expr_program(self):
         self.assertEquals(9, parse('2+3, 4+5')())
@@ -63,6 +106,16 @@ class ParserTestCase(unittest.TestCase):
     def test_define_multiline_functions(self):
         self.assertEquals(1024, parse("""
             test = @x,y:(
+                a = y**.5
+                x**a
+            )
+            test(2, 100)
+        """)())
+
+    def test_define_multiline_functions_with_parenthesis_below(self):
+        self.assertEquals(1024, parse("""
+            test = @x,y:
+            (
                 a = y**.5
                 x**a
             )
