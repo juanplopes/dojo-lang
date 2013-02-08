@@ -1,26 +1,29 @@
 # -*- coding:utf8 -*-
-import re, sys, json
+import re
 from ast import *
 from scanner import Scanner, Token
         
 def parse(expression):
     tokens = Scanner(expression, 
                      '+', '-', '*', '/', '**', '(', ')', ',', '=', '@', ';', ':',
-                     NUMBER = '[0-9]+', 
+                     'return',
+                     INTEGER = '[0-9]+', 
+                     FLOAT = '[0-9]*\.[0-9]+', 
                      IDENTIFIER = '[a-zA-Z][a-zA-Z0-9]*', 
                      NEWLINE = '\\n',
                      EOF = '$')
  
     #block ::= expr (('\n'|','|';')+ expr)*
     def block():
+        while tokens.maybe('NEWLINE', ',', ';'): pass
         exprs = [expr()]
-        while tokens.at_least_one('NEWLINE', ',', ';') and not tokens.peek('EOF'):
+        while tokens.at_least_one('NEWLINE', ',', ';') and not tokens.peek('EOF', ')'):
             exprs.append(expr())
         return Program(exprs)
 
     #expr ::= adds
     def expr():
-        return function()
+        return return_expression()
 
     def _binary(higher, ops):
         e = higher()        
@@ -42,6 +45,10 @@ def parse(expression):
         tokens.next(until)
         return args        
     
+    def return_expression():
+        if tokens.maybe('return'):
+            return Return(function())
+        return function()
     #function ::= ('@' _list_of('IDENTIFIER') ':' expr) | adds
     def function():
         if tokens.maybe('@'):
@@ -78,7 +85,8 @@ def parse(expression):
     #primary ::= NUMBER | IDENTIFIER | ('(' expr ')')
     def primary():
         return tokens.expect({
-            'NUMBER': lambda x: Literal(int(x.image)),
+            'INTEGER': lambda x: Literal(int(x.image)),
+            'FLOAT': lambda x: Literal(float(x.image)),
             'IDENTIFIER': lambda x: VariableSet(x.image, expr()) if tokens.maybe('=') else VariableGet(x.image),
             '(': lambda x: tokens.following(block(), ')')}) 
         
@@ -86,4 +94,20 @@ def parse(expression):
     return tokens.following(block(), 'EOF')
     
 if __name__ == '__main__':
-    print parse(sys.argv[1])(Scope())
+    import sys
+    
+    def read(prompt): 
+        return raw_input(prompt)
+
+    def write(message):
+        print message               
+    
+    with open(sys.argv[1]) as f:
+        data = f.read()
+        scope = Scope({
+            'int': int,
+            'read': read,
+            'write': write
+        })
+        parse(data)(scope)  
+

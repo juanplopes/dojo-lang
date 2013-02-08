@@ -1,0 +1,11 @@
+sqrt = @x:x**.5
+
+bhaskara = @a,b,c: (
+    delta = b**2-4*a*c
+    return (-b+delta)/2*a
+)
+
+a = int(read(1))
+b = int(read(2))
+c = int(read(3))
+write(bhaskara(a,b,c))

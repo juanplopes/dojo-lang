@@ -2,9 +2,9 @@
 import types
 
 class Scope(object):
-    def __init__(self, parent=None):
+    def __init__(self, data=None, parent=None):
         self.parent = parent
-        self.data = {}
+        self.data = data or {}
 
     def get(self, name):
         if name in self.data: return self.data[name]
@@ -18,7 +18,11 @@ class Scope(object):
         self.data[name] = value
         
     def push(self):
-        return Scope(self)
+        return Scope(parent=self)
+
+class ReturnException(Exception):
+    def __init__(self, value):
+        self.value = value
 
 class Literal(object):
     def __init__(self, value):
@@ -40,7 +44,16 @@ class VariableSet(object):
         self.expr = expr
 
     def __call__(self, scope):
-        return scope.put(self.name, self.expr(scope))
+        value = self.expr(scope)
+        scope.put(self.name, value)
+        return value
+
+class Return(object):
+    def __init__(self, expr):
+        self.expr = expr
+
+    def __call__(self, scope):
+        raise ReturnException(self.expr(scope))
 
     
 class Call(object):
@@ -79,7 +92,10 @@ class Function(object):
             my_scope = scope.push()
             for name, value in zip(self.args, args):
                 my_scope.force(name, value)
-            return self.body(my_scope)            
+            try:
+                return self.body(my_scope)            
+            except ReturnException as e:
+                return e.value
         return y
 
 class Program(object):
@@ -89,7 +105,10 @@ class Program(object):
     def __call__(self, scope = None):
         result = None
         scope = scope or Scope()
-        for expr in self.exprs:
-            result = expr(scope)
-        return result
+        try:
+            for expr in self.exprs:
+                result = expr(scope)
+            return result
+        except ReturnException as e:
+            return e.value
 

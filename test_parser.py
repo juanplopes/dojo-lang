@@ -59,8 +59,25 @@ class ParserTestCase(unittest.TestCase):
 
     def test_define_method_and_use_later(self):
         self.assertEquals(1024, parse('pow=@x,y:x**y, pow(2, 10)')())
+        
+    def test_define_multiline_functions(self):
+        self.assertEquals(1024, parse("""
+            test = @x,y:(
+                a = y**.5
+                x**a
+            )
+            test(2, 100)
+        """)())
 
+    def test_define_multiline_with_return_functions(self):
+        self.assertEquals(1024, parse("""
+            test = @x,y:(
+                a = y**.5
+                return x**a
+            )
+            test(2, 100)
+        """)())
 
-
+        
 if __name__ == '__main__':
     unittest.main()
