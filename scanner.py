@@ -12,7 +12,7 @@ class Token:
         self.end = end
  
 class Scanner:
-    def __init__(self, tokens, expr):
+    def __init__(self, expr, **tokens):
         self.tokens = tokens
         self.expr = expr
         self.pos = 0

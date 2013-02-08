@@ -4,20 +4,19 @@ from ast import *
 from scanner import Scanner, Token
         
 def parse(expr):
-    tokens = Scanner({
-                'NUMBER': '[0-9]+', 
-                'IDENTIFIER': '[a-zA-Z][a-zA-Z0-9]*', 
-                'ADD': '\+', 
-                'SUB': '-', 
-                'POW': '\^',
-                'MUL': '\*', 
-                'DIV': '/',
-                'LPAREN': '\(',
-                'RPAREN': '\)',
-                'COMMA': ',',
-                'ATTR': '=',
-                'EOF': '$'
-             }, expr)
+    tokens = Scanner(expr, 
+                    NUMBER = '[0-9]+', 
+                    IDENTIFIER = '[a-zA-Z][a-zA-Z0-9]*', 
+                    ADD = '\+', 
+                    SUB = '-', 
+                    POW = '\^',
+                    MUL = '\*', 
+                    DIV = '/',
+                    LPAREN = '\(',
+                    RPAREN = '\)',
+                    COMMA = ',',
+                    ATTR = '=',
+                    EOF = '$')
     
     def _binary(higher, **ops):
         e = higher()        
