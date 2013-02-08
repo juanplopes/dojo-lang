@@ -82,7 +82,7 @@ def parse(expression):
         
         return e
 
-    #primary ::= NUMBER | IDENTIFIER | ('(' block ')')
+    #primary ::= INTEGER | FLOAT | IDENTIFIER | ('(' block ')')
     def primary():
         return tokens.expect({
             'INTEGER': lambda x: Literal(int(x.image)),
