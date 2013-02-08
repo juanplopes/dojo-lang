@@ -9,7 +9,7 @@ def parse(expr):
                     IDENTIFIER = '[a-zA-Z][a-zA-Z0-9]*', 
                     ADD = '\+', 
                     SUB = '-', 
-                    POW = '\^',
+                    POW = '\*\*',
                     MUL = '\*', 
                     DIV = '/',
                     LPAREN = '\(',

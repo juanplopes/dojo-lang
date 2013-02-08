@@ -10,7 +10,7 @@ class ParserTestCase(unittest.TestCase):
         self.assertEquals(40, parse('42-2')())
         self.assertEquals(84, parse('42*2')())
         self.assertEquals(21, parse('42/2')())
-        self.assertEquals(1024, parse('2^10')())
+        self.assertEquals(1024, parse('2**10')())
 
     def test_2_plus_2_with_spaces(self):
         program = parse('2   \t+ \t2')
@@ -43,7 +43,7 @@ class ParserTestCase(unittest.TestCase):
         self.assertEquals(5, parse('a=2, a+3')())
 
     def test_power_one_variable_to_another(self):
-        self.assertEquals(1024, parse('a=2, b=10, a^b')())
+        self.assertEquals(1024, parse('a=2, b=10, a**b')())
 
 
 
