@@ -2,7 +2,7 @@
 import re, sys, json
 from ast import *
  
-class Token:
+class Token(object):
     EOF = lambda p: Token('EOF', '', p)
  
     def __init__(self, name, image, begin, end):
@@ -11,13 +11,13 @@ class Token:
         self.begin = begin
         self.end = end
  
-class Scanner:
+class Scanner(object):
     def __init__(self, expr, *symbols, **named):
         self.tokens = {}
         for name, pattern in named.items():
-            self.tokens[name] = re.compile('^\s*' + pattern)
+            self.tokens[name] = re.compile('^[ \t\r\f\v]*' + pattern)
         for symbol in symbols:
-            self.tokens[symbol] = re.compile('^\s*' + re.escape(symbol))
+            self.tokens[symbol] = re.compile('^[ \t\r\f\v]*' + re.escape(symbol))
 
         self.expr = expr
         self.pos = 0
@@ -52,6 +52,12 @@ class Scanner:
         if self.peek(*allowed):
             return self.next(*allowed)
        
+    def at_least_one(self, *allowed):
+        token = None
+        while self.peek(*allowed):
+            token = self.next(*allowed)
+        return token
+    
     def following(self, value, *allowed):
         self.next(*allowed)
         return value

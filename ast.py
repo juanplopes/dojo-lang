@@ -1,3 +1,6 @@
+# -*- coding:utf8 -*-
+import types
+
 class Scope(object):
     def __init__(self, parent=None):
         self.parent = parent
@@ -7,8 +10,11 @@ class Scope(object):
         if name in self.data: return self.data[name]
         if self.parent: return self.parent.get(name)
         return None
-        
+       
     def put(self, name, value):
+        self.data[name] = value
+
+    def force(self, name, value):
         self.data[name] = value
         
     def push(self):
@@ -37,7 +43,7 @@ class VariableSet(object):
         return scope.put(self.name, self.expr(scope))
 
     
-class MethodCall(object):
+class Call(object):
     def __init__(self, method, args):
         self.method = method
         self.args = args
@@ -62,6 +68,19 @@ class UnaryExpression(object):
 
     def __call__(self, scope):
         return self.op(self.expr(scope))
+
+class Function(object):
+    def __init__(self, args, body):
+        self.args = args
+        self.body = body
+
+    def __call__(self, scope):
+        def y(*args):
+            my_scope = scope.push()
+            for name, value in zip(self.args, args):
+                my_scope.force(name, value)
+            return self.body(my_scope)            
+        return y
 
 class Program(object):
     def __init__(self, exprs):
