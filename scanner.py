@@ -12,13 +12,18 @@ class Token:
         self.end = end
  
 class Scanner:
-    def __init__(self, expr, **tokens):
-        self.tokens = tokens
+    def __init__(self, expr, *symbols, **named):
+        self.tokens = {}
+        for name, pattern in named.items():
+            self.tokens[name] = re.compile('^\s*' + pattern)
+        for symbol in symbols:
+            self.tokens[symbol] = re.compile('^\s*' + re.escape(symbol))
+
         self.expr = expr
         self.pos = 0
  
     def match(self, name):
-        match = re.match('^\s*'+self.tokens[name], self.expr[self.pos:])
+        match = re.match(self.tokens[name], self.expr[self.pos:])
         if match:
             return Token(name, match.group().strip(), self.pos, self.pos+len(match.group()))
  
@@ -51,6 +56,6 @@ class Scanner:
         self.next(*allowed)
         return value
         
-    def expect(self, **actions):
+    def expect(self, actions):
         token = self.next(*actions.keys())
         return actions[token.name](token)
