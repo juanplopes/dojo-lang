@@ -5,8 +5,8 @@ from scanner import Scanner, Token
         
 def parse(expression):
     tokens = Scanner(expression, 
-                     '+', '-', '*', '/', '**', '%', '(', ')', 
-                     'return', '==', '!=', ',', '=', '@', ';', ':',
+                     '+', '-', '*', '/', '**', '%', '(', ')', '[', ']',
+                     'return', '==', '!=', ',', '=', '@', ';', ':', '..',
                      '<', '<=', '>', '>=', 'and', 'or', 'not',
                      INTEGER = '[0-9]+', 
                      FLOAT = '[0-9]*\.[0-9]+', 
@@ -101,11 +101,20 @@ def parse(expression):
     def pows(): 
         return _binary(negs, {'**': lambda x,y:x**y})
  
-    #negs ::= ('-' negs) | method_call
+    #negs ::= ('-' negs) | range_literal
     def negs():
-        return _unary(negs, call, {'-': lambda x:-x, 'not': lambda x: not x })
+        return _unary(negs, range_literal, {'-': lambda x:-x, 'not': lambda x: not x })
  
-    #method_call ::= primary ('(' _list_of(expr) ')')?
+    #range_literal ::= call ('..' call (':' call)?)?
+    def range_literal():
+        begin = call()
+        if tokens.next_if('..'):
+            end = call()
+            step = call() if tokens.next_if(':') else None
+            return RangeLiteral(begin, end, step)
+        return begin
+ 
+    #call ::= primary ('(' _list_of(expr) ')')?
     def call():
         e = primary()
         if tokens.next_if('(', stop_on_lf=True):
@@ -114,13 +123,14 @@ def parse(expression):
         
         return e
 
-    #primary ::= INTEGER | FLOAT | IDENTIFIER | ('(' block ')')
+    #primary ::= INTEGER | FLOAT | IDENTIFIER | ('(' block ')') | '[' _list_of(expr) ']'
     def primary():
         return tokens.expect({
             'INTEGER': lambda x: Literal(int(x.image)),
             'FLOAT': lambda x: Literal(float(x.image)),
             'IDENTIFIER': lambda x: VariableSet(x.image, expr()) if tokens.next_if('=') else VariableGet(x.image),
-            '(': lambda x: tokens.following(block(')'), ')')}) 
+            '(': lambda x: tokens.following(block(')'), ')'),
+            '[': lambda x: ListLiteral(_list_of(expr, ']'))}) 
         
  
     return tokens.following(block('EOF'), 'EOF')

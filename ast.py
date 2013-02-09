@@ -24,6 +24,25 @@ class ReturnException(Exception):
     def __init__(self, value):
         self.value = value
 
+class ListLiteral(object):
+    def __init__(self, exprs):
+        self.exprs = exprs
+
+    def __call__(self, scope):
+        return [expr(scope) for expr in self.exprs]
+
+class RangeLiteral(object):
+    def __init__(self, begin, end, step):
+        self.begin = begin
+        self.end = end
+        self.step = step
+
+    def __call__(self, scope):
+        if self.step:
+            return xrange(self.begin(scope), self.end(scope), self.step(scope))
+        else:
+            return xrange(self.begin(scope), self.end(scope))
+
 class Literal(object):
     def __init__(self, value):
         self.value = value

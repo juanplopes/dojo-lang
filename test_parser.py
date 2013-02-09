@@ -186,5 +186,24 @@ class ParserTestCase(unittest.TestCase):
         self.assertEquals(True, parse('not (2+2==5)')())
         self.assertEquals(False, parse('not (2+2==4)')())
 
+    def test_list_literal(self):
+        self.assertEquals([1,2,3,4], parse('[1,2,2+1,2*2]')())
+        
+    def test_range_literal(self):
+        obj = parse('5..8')()
+        it = iter(obj)
+        self.assertEquals(5, next(it))
+        self.assertEquals(6, next(it))
+        self.assertEquals(7, next(it))
+        self.assertRaises(StopIteration, next, it)
+    
+    def test_range_with_step(self):
+        obj = parse('5..10:2')()
+        it = iter(obj)
+        self.assertEquals(5, next(it))
+        self.assertEquals(7, next(it))
+        self.assertEquals(9, next(it))
+        self.assertRaises(StopIteration, next, it)    
+
 if __name__ == '__main__':
     unittest.main()
