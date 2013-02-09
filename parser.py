@@ -5,8 +5,9 @@ from scanner import Scanner, Token
         
 def parse(expression):
     tokens = Scanner(expression, 
-                     '+', '-', '*', '/', '**', '(', ')', ',', '=', '@', ';', ':',
-                     'return', '==', '!=',
+                     '+', '-', '*', '/', '**', '%', '(', ')', 
+                     'return', '==', '!=', ',', '=', '@', ';', ':',
+                     '<', '<=', '>', '>=', 'and', 'or', 'not',
                      INTEGER = '[0-9]+', 
                      FLOAT = '[0-9]*\.[0-9]+', 
                      IDENTIFIER = '[a-zA-Z][a-zA-Z0-9]*', 
@@ -15,7 +16,7 @@ def parse(expression):
     #block ::= expr ((','|';')+ expr)*
     def block(expected):
         exprs = [expr()]
-        while tokens.ignore(',', ';') and not tokens.peek(expected):
+        while tokens.ignore(',', ';') and not tokens.maybe(expected):
             exprs.append(expr())
         return Program(exprs)
 
@@ -25,49 +26,76 @@ def parse(expression):
 
     def _binary(higher, ops):
         e = higher()        
-        while tokens.peek(*ops, stop_on_lf=True):
+        while tokens.maybe(*ops, stop_on_lf=True):
             e = BinaryExpression(ops[tokens.next(*ops).name], e, higher())
         return e
 
+    def _short_binary(higher, ops):
+        e = higher()
+        while tokens.maybe(*ops, stop_on_lf=True):
+            e = ops[tokens.next(*ops).name](e, higher())
+        return e
+
     def _unary(current, higher, ops):
-        if tokens.peek(*ops):
+        if tokens.maybe(*ops):
             return UnaryExpression(ops[tokens.next(*ops).name], current())
         return higher()
     
     def _list_of(what, until):
         args = []
-        if not tokens.peek(until):
+        if not tokens.maybe(until):
             args.append(what())
-            while tokens.maybe(','):
+            while tokens.next_if(','):
                 args.append(what())
         tokens.next(until)
         return args        
 
     #return_expression ::= ('return' expr) | function
     def return_expression():
-        if tokens.maybe('return'):
+        if tokens.next_if('return'):
             return Return(expr())
         return function()
         
-    #function ::= ('@' _list_of('IDENTIFIER') ':' expr) | equalities
+    #function ::= ('@' _list_of('IDENTIFIER') ':' expr) | or_operator
     def function():
-        if tokens.maybe('@'):
+        if tokens.next_if('@'):
             args = _list_of(lambda: tokens.next('IDENTIFIER').image, ':')
             body = expr()
             return Function(args, body)
-        return equalities()
-     
-    #equalities ::= adds (('=='|'!=') adds)*
+        return or_operator()
+
+    #or_operator ::= and_operator ('or' and_operator)*
+    def or_operator():
+        return _short_binary(and_operator, {'or': OrExpression})
+
+    #and_operator ::= equalities ('and' equalities)*
+    def and_operator():
+        return _short_binary(equalities, {'and': AndExpression})
+
+    #equalities ::= comparations (('=='|'!=') comparations)*
     def equalities():
-        return _binary(adds, {'==': lambda x,y: x==y, '!=': lambda x,y: x!=y})
-     
+        return _binary(comparations, {
+            '==': lambda x,y: x==y, 
+            '!=': lambda x,y: x!=y})
+
+    #comparations ::= adds (('<'|'<='|'>','>=') adds)*
+    def comparations():
+        return _binary(adds, {
+            '>': lambda x,y: x>y, 
+            '>=': lambda x,y: x>=y,
+            '<': lambda x,y: x<y, 
+            '<=': lambda x,y: x<=y,})
+
     #adds ::= muls (('+'|'-') muls)*
     def adds(): 
         return _binary(muls, {'+': lambda x,y:x+y, '-': lambda x,y:x-y})
 
     #muls ::= pows (('*'|'/') pows)*
     def muls(): 
-        return _binary(pows, {'*': lambda x,y:x*y, '/': lambda x,y:x/y})
+        return _binary(pows, {
+            '*': lambda x,y:x*y, 
+            '/': lambda x,y:x/y, 
+            '%': lambda x,y:x%y})
 
     #pows ::= negs ('**' negs)*
     def pows(): 
@@ -75,12 +103,12 @@ def parse(expression):
  
     #negs ::= ('-' negs) | method_call
     def negs():
-        return _unary(negs, call, {'-': lambda x:-x })
+        return _unary(negs, call, {'-': lambda x:-x, 'not': lambda x: not x })
  
     #method_call ::= primary ('(' _list_of(expr) ')')?
     def call():
         e = primary()
-        if tokens.maybe('(', stop_on_lf=True):
+        if tokens.next_if('(', stop_on_lf=True):
             args = _list_of(expr, ')')
             return Call(e, args)
         
@@ -91,7 +119,7 @@ def parse(expression):
         return tokens.expect({
             'INTEGER': lambda x: Literal(int(x.image)),
             'FLOAT': lambda x: Literal(float(x.image)),
-            'IDENTIFIER': lambda x: VariableSet(x.image, expr()) if tokens.maybe('=') else VariableGet(x.image),
+            'IDENTIFIER': lambda x: VariableSet(x.image, expr()) if tokens.next_if('=') else VariableGet(x.image),
             '(': lambda x: tokens.following(block(')'), ')')}) 
         
  

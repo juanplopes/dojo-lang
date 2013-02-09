@@ -10,6 +10,7 @@ class ParserTestCase(unittest.TestCase):
         self.assertEquals(40, parse('42-2')())
         self.assertEquals(84, parse('42*2')())
         self.assertEquals(21, parse('42/2')())
+        self.assertEquals(2, parse('42%4')())
         self.assertEquals(1024, parse('2**10')())
 
     def test_2_plus_2_with_spaces(self):
@@ -140,6 +141,50 @@ class ParserTestCase(unittest.TestCase):
         self.assertEquals(False, parse('a=2, b=2, a!=b')())
         self.assertEquals(True, parse('a=2, b=3, a!=b')())
 
+    def test_comparation_operators(self):
+        self.assertEquals(False, parse('a=2, b=3, a>b')())
+        self.assertEquals(True, parse('a=2, b=3, a<b')())
+
+        self.assertEquals(False, parse('a=2, b=3, a>=b')())
+        self.assertEquals(True, parse('a=2, b=3, a<=b')())
+
+        self.assertEquals(True, parse('a=2, b=2, a>=b')())
+        self.assertEquals(True, parse('a=2, b=2, a<=b')())
+
+    def test_and_operator(self):
+        counter = [0]
+        def function(): 
+            counter[0]+=1
+            return True
+
+        scope = Scope({'print': function})
+        
+        self.assertEquals(False, parse('2+2==5 and print()')(scope))
+        self.assertEquals(0, counter[0])
+        
+        self.assertEquals(True, parse('2+2==4 and print()')(scope))
+        self.assertEquals(1, counter[0])
+        
+    def test_or_operator(self):
+        counter = [0]
+        def function(): 
+            counter[0]+=1
+            return False
+
+        scope = Scope({'print': function})
+
+        self.assertEquals(False, parse('2+2==5 or print()')(scope))
+        self.assertEquals(1, counter[0])
+        
+        self.assertEquals(True, parse('2+2==4 or print()')(scope))
+        self.assertEquals(1, counter[0])
+
+        self.assertEquals(True, parse('2+2==4 or 2+3==5')(scope))
+        self.assertEquals(1, counter[0])
+        
+    def test_not_operator(self):
+        self.assertEquals(True, parse('not (2+2==5)')())
+        self.assertEquals(False, parse('not (2+2==4)')())
 
 if __name__ == '__main__':
     unittest.main()

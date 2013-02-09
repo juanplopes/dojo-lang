@@ -74,6 +74,22 @@ class BinaryExpression(object):
     def __call__(self, scope):
         return self.op(self.lhs(scope), self.rhs(scope))
     
+class AndExpression(object):
+    def __init__(self, lhs, rhs):
+        self.lhs = lhs
+        self.rhs = rhs
+
+    def __call__(self, scope):
+        return self.lhs(scope) and self.rhs(scope)
+        
+class OrExpression(object):
+    def __init__(self, lhs, rhs):
+        self.lhs = lhs
+        self.rhs = rhs
+
+    def __call__(self, scope):
+        return self.lhs(scope) or self.rhs(scope)
+    
 class UnaryExpression(object):
     def __init__(self, op, expr):
         self.op = op
