@@ -10,6 +10,3 @@ b = int(read(2))
 c = int(read(3))
 write(bhaskara(a,b,c))
 
-
-
-

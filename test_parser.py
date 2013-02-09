@@ -2,6 +2,7 @@
 
 import unittest
 from parser import parse
+from scanner import InvalidSyntax, UnexpectedToken
 from ast import Scope
 
 class ParserTestCase(unittest.TestCase):
@@ -66,11 +67,6 @@ class ParserTestCase(unittest.TestCase):
         scope = Scope({'add':lambda x, y:x+y})
         self.assertEquals(2, parse('add,(5, 2)')(scope))
 
-
-    def test_callable_with_missing_comma(self):
-        scope = Scope({'add':lambda x, y:x+y})
-        self.assertRaises(Exception, parse, '2*add(2+2 3+3)')
-
     def test_callable_with_non_primary(self):
         scope = Scope({'add':lambda x, y:x+y})
         self.assertEquals(20, parse('2*add(2+2, 3+3)')(scope))
@@ -94,11 +90,6 @@ class ParserTestCase(unittest.TestCase):
     def test_multi_expr_program(self):
         self.assertEquals(9, parse('2+3, 4+5')())
 
-    def test_multi_expr_program_with_error_in_the_last(self):
-        self.assertRaises(Exception, parse, '2+3, 4+5, )')
-
-    def no_such_thing_as_empty_program(self):
-        self.assertRaises(Exception, parse, '')
 
     def test_set_variable_and_get_after(self):
         self.assertEquals(5, parse('a=2, a+3')())
@@ -209,6 +200,37 @@ class ParserTestCase(unittest.TestCase):
         self.assertEquals(7, next(it))
         self.assertEquals(9, next(it))
         self.assertRaises(StopIteration, next, it)    
+        
+class ParserErrorTestCase(unittest.TestCase):
+    def test_exception_contains_line_number_on_different_line(self):
+        with self.assertRaises(UnexpectedToken) as context:
+            parse('2+2\n2+3\n  )')
+
+        self.assertIn('line 3 column 3', context.exception.message)
+
+    def test_exception_contains_line_number_on_same_line(self):
+        with self.assertRaises(UnexpectedToken) as context:
+            parse('2+2 2+3  )')
+
+        self.assertIn('line 1 column 10', context.exception.message)
+
+    def test_callable_with_missing_comma(self):
+        scope = Scope({'add':lambda x, y:x+y})
+        self.assertRaises(UnexpectedToken, parse, '2*add(2+2 3+3)')
+
+    def test_multi_expr_program_with_error_in_the_last(self):
+        self.assertRaises(UnexpectedToken, parse, '2+3, 4+5, )')
+
+    def test_no_such_thing_as_empty_program(self):
+        self.assertRaises(UnexpectedToken, parse, '')
+
+    def test_when_unknown_char(self):
+        with self.assertRaises(InvalidSyntax) as context:
+            parse('$')
+
+        self.assertIn('line 1 column 1', context.exception.message)
+
+
 
 if __name__ == '__main__':
     unittest.main()
