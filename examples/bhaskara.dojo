@@ -1,6 +1,6 @@
 sqrt = @x:x**.5
 
-bhaskara = def a,b,c: (
+bhaskara = @a,b,c: (
     delta = b**2-4*a*c
     return (-b+delta)/2*a
 )
