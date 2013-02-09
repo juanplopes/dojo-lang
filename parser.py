@@ -117,9 +117,9 @@ def parse(expression):
     #call ::= primary ('(' _list_of(expr) ')')?
     def call():
         e = primary()
-        if tokens.next_if('(', stop_on_lf=True):
+        while tokens.next_if('(', stop_on_lf=True):
             args = _list_of(expr, ')')
-            return Call(e, args)
+            e = Call(e, args)
         
         return e
 

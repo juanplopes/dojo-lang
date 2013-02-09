@@ -52,6 +52,11 @@ class ParserTestCase(unittest.TestCase):
     def test_callable(self):
         scope = Scope({'add':lambda x, y:x+y})
         self.assertEquals(14, parse('2*add(5, 2)')(scope))
+        
+    def test_double_callable(self):
+        scope = Scope({'add':lambda x, y:lambda:x+y})
+        self.assertEquals(14, parse('2*add(5, 2)()')(scope))
+
 
     def test_callable_ambiguity(self):
         scope = Scope({'add':lambda x, y:x+y})
