@@ -1,7 +1,5 @@
 sqrt = @x:x**.5
 
-2+2==4 or print('abc')
-
 bhaskara = @a,b,c: (
     delta = b**2-4*a*c
     return (-b+delta)/2*a
