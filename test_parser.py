@@ -131,6 +131,15 @@ class ParserTestCase(unittest.TestCase):
             test(2, 100)
         """)())
 
-        
+    def test_equality_operator(self):
+        self.assertEquals(True, parse('a=2, b=2, a==b')())
+        self.assertEquals(False, parse('a=2, b=3, a==b')())
+
+
+    def test_equality_operator(self):
+        self.assertEquals(False, parse('a=2, b=2, a!=b')())
+        self.assertEquals(True, parse('a=2, b=3, a!=b')())
+
+
 if __name__ == '__main__':
     unittest.main()

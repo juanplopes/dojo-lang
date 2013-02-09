@@ -6,13 +6,13 @@ from scanner import Scanner, Token
 def parse(expression):
     tokens = Scanner(expression, 
                      '+', '-', '*', '/', '**', '(', ')', ',', '=', '@', ';', ':',
-                     'return',
+                     'return', '==', '!=',
                      INTEGER = '[0-9]+', 
                      FLOAT = '[0-9]*\.[0-9]+', 
                      IDENTIFIER = '[a-zA-Z][a-zA-Z0-9]*', 
                      EOF = '$')
  
-    #block ::= expr (('\n'|','|';')+ expr)*
+    #block ::= expr ((','|';')+ expr)*
     def block(expected):
         exprs = [expr()]
         while tokens.ignore(',', ';') and not tokens.peek(expected):
@@ -46,16 +46,20 @@ def parse(expression):
     #return_expression ::= ('return' expr) | function
     def return_expression():
         if tokens.maybe('return'):
-            return Return(function())
+            return Return(expr())
         return function()
         
-    #function ::= ('@' _list_of('IDENTIFIER') ':' expr) | adds
+    #function ::= ('@' _list_of('IDENTIFIER') ':' expr) | equalities
     def function():
         if tokens.maybe('@'):
             args = _list_of(lambda: tokens.next('IDENTIFIER').image, ':')
             body = expr()
             return Function(args, body)
-        return adds()
+        return equalities()
+     
+    #equalities ::= adds (('=='|'!=') adds)*
+    def equalities():
+        return _binary(adds, {'==': lambda x,y: x==y, '!=': lambda x,y: x!=y})
      
     #adds ::= muls (('+'|'-') muls)*
     def adds(): 

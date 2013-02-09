@@ -34,20 +34,26 @@ class Scanner(object):
         if opts.get('stop_on_lf') and matched.lf: return None
         return matched
  
-    def peek(self, *allowed, **opts):
+    def peek_in_all(self, **opts):
         token = None
-        for matched in map(self.match, allowed):
+        for matched in map(self.match, self.tokens.keys()):
             if self.check(matched, **opts) and (not token or token.end < matched.end):
                 token = matched
+
         return token
  
+    def peek(self, *allowed, **opts):
+        token = self.peek_in_all(**opts)
+        if token and token.name in allowed:
+            return token
+ 
     def next(self, *allowed, **opts):
-        token = self.peek(*self.tokens, **opts)
- 
+        token = self.peek_in_all(**opts)
+
         if not token:
-            raise Exception("Cannot understand expression at position {}: '{}'".format( 
+            raise Exception("Cannot understand expression at position {}: '{}' {}".format( 
                               self.pos, self.expr[self.pos:]))
- 
+
         if token.name not in allowed:
             raise Exception("Unexpected {} at position {}, expected one of: {}".format( 
                               token.name, token.begin, ", ".join(allowed)))
