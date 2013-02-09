@@ -45,7 +45,7 @@ class Scanner(object):
         if match:
             w, s = match.groups()[:2]
             line = self.line+w.count('\n')
-            column = len(w) - w.rfind('\n') - 1 + ('\n' not in w and self.column or 1)
+            column = (len(w) - w.rfind('\n') - 1) + ('\n' not in w and self.column or 1)
             return Token(name, w, s, self.pos, line, column)
  
     def reducer(self, **opts):

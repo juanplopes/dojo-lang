@@ -201,6 +201,25 @@ class ParserTestCase(unittest.TestCase):
         self.assertEquals(9, next(it))
         self.assertRaises(StopIteration, next, it)    
         
+    def test_import_module(self):
+        scope = Scope()
+        self.assertEquals(__import__('math'), parse('import math')(scope))
+        self.assertEquals(__import__('math'), scope.get('math'))
+        
+    def test_import_module_items(self):
+        scope = Scope()
+        math = __import__('math')
+        self.assertEquals(math, parse('import math(sqrt, cos, log)')(scope))
+        self.assertEquals(math.sqrt, scope.get('sqrt'))
+        self.assertEquals(math.cos, scope.get('cos'))
+        self.assertEquals(math.log, scope.get('log'))
+
+    def test_import_module_ambiguity(self):
+        scope = Scope()
+        math = __import__('math')
+        self.assertEquals(1, parse('log=1, import math\n(sqrt, cos, log)')(scope))
+
+        
 class ParserErrorTestCase(unittest.TestCase):
     def test_exception_contains_line_number_on_different_line(self):
         with self.assertRaises(UnexpectedToken) as context:

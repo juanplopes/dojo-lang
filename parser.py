@@ -7,10 +7,10 @@ def parse(expression):
     tokens = Scanner(expression, 
                      '+', '-', '*', '/', '**', '%', '(', ')', '[', ']',
                      'return', '==', '!=', ',', '=', '@', ';', ':', '..',
-                     '<', '<=', '>', '>=', 'and', 'or', 'not',
+                     '<', '<=', '>', '>=', 'and', 'or', 'not', 'import',
                      INTEGER = '[0-9]+', 
                      FLOAT = '[0-9]*\.[0-9]+', 
-                     IDENTIFIER = '[a-zA-Z][a-zA-Z0-9]*', 
+                     IDENTIFIER = '[a-zA-Z][a-zA-Z0-9]*',
                      EOF = '$')
  
     #block ::= expr ((','|';')+ expr)*
@@ -50,12 +50,23 @@ def parse(expression):
         tokens.next(until)
         return args        
 
-    #return_expression ::= ('return' expr) | function
+    #return_expression ::= ('return' expr) | import_expression
     def return_expression():
         if tokens.next_if('return'):
             return Return(expr())
+        return import_expression()
+
+    #import_expression ::= ('import' expr) | function
+    def import_expression():
+        if tokens.next_if('import'):
+            name = tokens.next('IDENTIFIER').image
+            items = []        
+            if tokens.next_if('(', stop_on_lf=True):
+                items = _list_of(lambda: tokens.next('IDENTIFIER').image, ')')
+            return ModuleImport(name, items)
         return function()
-        
+
+       
     #function ::= ('@' _list_of('IDENTIFIER') ':' expr) | or_operator
     def function():
         if tokens.next_if('@'):

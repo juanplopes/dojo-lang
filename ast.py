@@ -14,9 +14,6 @@ class Scope(object):
     def put(self, name, value):
         self.data[name] = value
 
-    def force(self, name, value):
-        self.data[name] = value
-        
     def push(self):
         return Scope(parent=self)
 
@@ -126,12 +123,28 @@ class Function(object):
         def y(*args):
             my_scope = scope.push()
             for name, value in zip(self.args, args):
-                my_scope.force(name, value)
+                my_scope.put(name, value)
             try:
                 return self.body(my_scope)            
             except ReturnException as e:
                 return e.value
         return y
+
+class ModuleImport(object):
+    def __init__(self, name, items):
+        self.name = name
+        self.items = items
+
+    def __call__(self, scope):
+        module = __import__(self.name, globals(), locals(), self.items)
+        if len(self.items):
+            for item in self.items:
+                scope.put(item, module.__getattribute__(item))
+        else:
+            scope.put(self.name, module)
+        
+        return module
+        
 
 class Program(object):
     def __init__(self, exprs):
