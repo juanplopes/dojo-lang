@@ -1,8 +1,8 @@
-sqrt = @x:x**.5
+import math(sqrt)
 
 bhaskara = @a,b,c: (
     delta = b**2-4*a*c
-    return (-b+delta)/2*a
+    return (-b+sqrt(delta))/2*a
 )
 
 a = int(read(1))

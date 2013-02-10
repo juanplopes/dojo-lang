@@ -158,7 +158,7 @@ if __name__ == '__main__':
     with open(sys.argv[1]) as f:
         data = f.read()
         scope = Scope(__builtin__.__dict__)
-        scope.force('read', read)
-        scope.force('write', write)
+        scope.put('read', read)
+        scope.put('write', write)
         parse(data)(scope)  
 
