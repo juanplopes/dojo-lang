@@ -8,7 +8,7 @@ class Scope(object):
     def get(self, name):
         if name in self.data: return self.data[name]
         if self.parent: return self.parent.get(name)
-        return None
+        raise NameError("name '{}' is not defined".format(name))
        
     def put(self, name, value):
         self.data[name] = value
@@ -52,6 +52,9 @@ class VariableGet(object):
 
     def __call__(self, scope):
         return scope.get(self.name)
+        
+    def to_assignment(self, expr):
+        return VariableSet(self.name, expr)
 
 class VariableSet(object):
     def __init__(self, name, expr):
@@ -62,6 +65,14 @@ class VariableSet(object):
         value = self.expr(scope)
         scope.put(self.name, value)
         return value
+
+class MemberAccess(object):
+    def __init__(self, expr, name):
+        self.expr = expr
+        self.name = name
+
+    def __call__(self, scope):
+        return getattr(self.expr(scope), self.name)
 
 class Return(object):
     def __init__(self, expr):

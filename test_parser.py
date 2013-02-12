@@ -263,9 +263,13 @@ class ParserTestCase(unittest.TestCase):
         self.assertEquals(math.log, scope.get('log'))
 
     def test_import_module_ambiguity(self):
-        scope = Scope()
+        scope = Scope({'sqrt':1, 'cos':2, 'log':3})
         math = __import__('math')
-        self.assertEquals(1, parse('log=1, import math\n(sqrt, cos, log)')(scope))
+        self.assertEquals(3, parse('import math\n(sqrt, cos, log)')(scope))
+
+    def test_member_access(self):
+        scope = Scope({'str': str, 'map': map})
+        self.assertEquals('1,2,3,4', parse('[1,2,3,4] |> map{str} |> ",".join')(scope))
 
         
 class ParserErrorTestCase(unittest.TestCase):

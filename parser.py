@@ -8,7 +8,7 @@ def parse(expression):
                      '+', '-', '*', '/', '**', '%', '(', ')', '[', ']', '{', '}',
                      'return', '==', '!=', ',', '=', '@', ';', ':', '..',
                      '<', '<=', '>', '>=', '~', 'and', 'or', 'not', 'import',
-                     '<<', '>>', '&', '|', '^', '|>', '=>', 'in', 'not in',
+                     '<<', '>>', '&', '|', '^', '|>', '=>', 'in', 'not in', '.',
                      INTEGER = r'[0-9]+', 
                      FLOAT = r'[0-9]*\.[0-9]+', 
                      IDENTIFIER = r'[a-zA-Z][a-zA-Z0-9]*',
@@ -49,7 +49,7 @@ def parse(expression):
  
     def block(until):
         exprs = []
-        while tokens.ignore(',', ';') and not tokens.maybe(until):
+        while tokens.ignore(',', ';') and not tokens.next_if(until):
             exprs.append(expr())
         return Block(exprs)
 
@@ -59,7 +59,14 @@ def parse(expression):
     def return_expression():
         if tokens.next_if('return'):
             return Return(expr())
-        return import_expression()
+        return assignment()
+
+    def assignment():
+        to = import_expression()
+        if hasattr(to, 'to_assignment') and tokens.next_if('='):
+            value = expr()
+            return to.to_assignment(value)
+        return to
 
     def import_expression():
         if tokens.next_if('import'):
@@ -105,11 +112,18 @@ def parse(expression):
         return begin
  
     def call():
-        e = primary()
+        e = member_access()
         while tokens.maybe('(', '{', stop_on_lf=True):
             e = tokens.expect({
                     '(': lambda x: Call(e, _list_of(expr, ')')),
                     '{': lambda x: PartialCall(e, _list_of(expr, '}'))}) 
+        return e
+
+    def member_access():
+        e = primary()
+        if tokens.next_if('.'):
+            member = tokens.next('IDENTIFIER')
+            return MemberAccess(e, member.image)
         return e
 
     def primary():
@@ -117,11 +131,11 @@ def parse(expression):
             'INTEGER': lambda x: Literal(int(x.image)),
             'FLOAT': lambda x: Literal(float(x.image)),
             'STRING': lambda x: Literal(x.image[1:-1].decode('string-escape')),
-            'IDENTIFIER': lambda x: VariableSet(x.image, expr()) if tokens.next_if('=') else VariableGet(x.image),
-            '(': lambda x: tokens.following(block(')'), ')'),
+            'IDENTIFIER': lambda x: VariableGet(x.image),
+            '(': lambda x: block(')'),
             '[': lambda x: ListLiteral(_list_of(expr, ']'))}) 
         
-    return tokens.following(block('EOF'), 'EOF')
+    return block('EOF')
     
 if __name__ == '__main__':
     import sys, __builtin__

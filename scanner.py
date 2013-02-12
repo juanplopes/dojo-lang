@@ -91,10 +91,6 @@ class Scanner(object):
         while self.maybe(*allowed, **opts):
             token = self.next(*allowed, **opts)
         return token
-    
-    def following(self, value, *allowed, **opts):
-        self.next(*allowed, **opts)
-        return value
         
     def expect(self, actions, **opts):
         token = self.next(*actions.keys(), **opts)
