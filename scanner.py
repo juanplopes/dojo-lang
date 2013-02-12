@@ -25,13 +25,14 @@ class InvalidSyntax(Exception):
 class UnexpectedToken(Exception):
     def __init__(self, token, allowed):
         super(Exception, self).__init__(        
-            "Unexpected <{}> at line {} column {}, expected one of: <{}>"
-                .format(token.name, token.line, token.column, ", ".join(allowed)))
+            "Unexpected '{}' at line {} column {}, expected one of: {}"
+                .format(token.name, token.line, token.column, ", ".join(
+                    map(lambda x:"'{}'".format(x), allowed))))
 
 class Scanner(object):
     def __init__(self, expr, *symbols, **named):
         self.tokens = list(chain(
-             ((x, re.compile('^(\s*)({})'.format(re.escape(x)))) for x in symbols),
+             ((x, re.compile('^(\s*)({})'.format(re.escape(x).replace('\\ ', '\s+')))) for x in symbols),
              ((k, re.compile('^(\s*)({})'.format(v))) for k, v in named.items())))
 
         self.expr = expr

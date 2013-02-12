@@ -7,48 +7,23 @@ def parse(expression):
     tokens = Scanner(expression, 
                      '+', '-', '*', '/', '**', '%', '(', ')', '[', ']',
                      'return', '==', '!=', ',', '=', '@', ';', ':', '..',
-                     '<', '<=', '>', '>=', 'and', 'or', 'not', 'import',
+                     '<', '<=', '>', '>=', '~', 'and', 'or', 'not', 'import',
+                     '<<', '>>', '&', '|', '^', 'in', 'not in',
                      INTEGER = '[0-9]+', 
                      FLOAT = '[0-9]*\.[0-9]+', 
                      IDENTIFIER = '[a-zA-Z][a-zA-Z0-9]*',
                      EOF = '$')
  
-    #block ::= expr ((','|';')+ expr)*
-    def block(expected):
-        exprs = [expr()]
-        while tokens.ignore(',', ';') and not tokens.maybe(expected):
+    #block ::= expr ((','|';')* expr)*
+    def block(until):
+        exprs = []
+        while tokens.ignore(',', ';') and not tokens.maybe(until):
             exprs.append(expr())
-        return Program(exprs)
+        return Block(exprs)
 
     #expr ::= return_expression
     def expr():
         return return_expression()
-
-    def _binary(higher, ops):
-        e = higher()        
-        while tokens.maybe(*ops, stop_on_lf=True):
-            e = BinaryExpression(ops[tokens.next(*ops).name], e, higher())
-        return e
-
-    def _short_binary(higher, ops):
-        e = higher()
-        while tokens.maybe(*ops, stop_on_lf=True):
-            e = ops[tokens.next(*ops).name](e, higher())
-        return e
-
-    def _unary(current, higher, ops):
-        if tokens.maybe(*ops):
-            return UnaryExpression(ops[tokens.next(*ops).name], current())
-        return higher()
-    
-    def _list_of(what, until):
-        args = []
-        if not tokens.maybe(until):
-            args.append(what())
-            while tokens.next_if(','):
-                args.append(what())
-        tokens.next(until)
-        return args        
 
     #return_expression ::= ('return' expr) | import_expression
     def return_expression():
@@ -56,7 +31,7 @@ def parse(expression):
             return Return(expr())
         return import_expression()
 
-    #import_expression ::= ('import' expr) | function
+    #import_expression ::= ('import' IDENTIFIER ('(' _list_of(IDENTIFIER)')')? | function
     def import_expression():
         if tokens.next_if('import'):
             name = tokens.next('IDENTIFIER').image
@@ -67,7 +42,7 @@ def parse(expression):
         return function()
 
        
-    #function ::= ('@' _list_of('IDENTIFIER') ':' expr) | or_operator
+    #function ::= ('@' _list_of(IDENTIFIER) ':' expr) | or_operator
     def function():
         if tokens.next_if('@'):
             args = _list_of(lambda: tokens.next('IDENTIFIER').image, ':')
@@ -79,29 +54,36 @@ def parse(expression):
     def or_operator():
         return _short_binary(and_operator, {'or': OrExpression})
 
-    #and_operator ::= equalities ('and' equalities)*
+    #and_operator ::= not_operator ('and' not_operator)*
     def and_operator():
-        return _short_binary(equalities, {'and': AndExpression})
+        return _short_binary(not_operator, {'and': AndExpression})
 
-    #equalities ::= comparations (('=='|'!=') comparations)*
+    #not_operator ::= ('not' not_operator) | equalities
+    def not_operator():
+        return _unary(not_operator, equalities, {
+            'not': lambda x: not x})
+
+    #equalities ::= shifts (('=='|'!='|'>'|'>='|'<'|'<=') shifts)*
     def equalities():
-        return _binary(comparations, {
+        return _binary(shifts, {
             '==': lambda x,y: x==y, 
-            '!=': lambda x,y: x!=y})
-
-    #comparations ::= adds (('<'|'<='|'>','>=') adds)*
-    def comparations():
-        return _binary(adds, {
-            '>': lambda x,y: x>y, 
+            '!=': lambda x,y: x!=y,
+             '>': lambda x,y: x>y, 
             '>=': lambda x,y: x>=y,
             '<': lambda x,y: x<y, 
-            '<=': lambda x,y: x<=y,})
+            '<=': lambda x,y: x<=y,
+            'in': lambda x,y: x in y,
+            'not in': lambda x,y: x not in y})
+
+    #shifts ::= adds (('<<'|'>>') adds)*
+    def shifts(): 
+        return _binary(adds, {'<<': lambda x,y:x<<y, '>>': lambda x,y:x>>y})
 
     #adds ::= muls (('+'|'-') muls)*
     def adds(): 
         return _binary(muls, {'+': lambda x,y:x+y, '-': lambda x,y:x-y})
 
-    #muls ::= pows (('*'|'/') pows)*
+    #muls ::= pows (('*'|'/'|'%') pows)*
     def muls(): 
         return _binary(pows, {
             '*': lambda x,y:x*y, 
@@ -110,11 +92,13 @@ def parse(expression):
 
     #pows ::= negs ('**' negs)*
     def pows(): 
-        return _binary(negs, {'**': lambda x,y:x**y})
+        return _binary(invs, {'**': lambda x,y:x**y})
  
-    #negs ::= ('-' negs) | range_literal
-    def negs():
-        return _unary(negs, range_literal, {'-': lambda x:-x, 'not': lambda x: not x })
+    #invs ::= (('-'|'~') negs) | range_literal
+    def invs():
+        return _unary(invs, range_literal, {
+            '-': lambda x:-x, 
+            '~': lambda x: ~x })
  
     #range_literal ::= call ('..' call (':' call)?)?
     def range_literal():
@@ -143,6 +127,31 @@ def parse(expression):
             '(': lambda x: tokens.following(block(')'), ')'),
             '[': lambda x: ListLiteral(_list_of(expr, ']'))}) 
         
+    def _binary(higher, ops):
+        e = higher()        
+        while tokens.maybe(*ops, stop_on_lf=True):
+            e = BinaryExpression(ops[tokens.next(*ops).name], e, higher())
+        return e
+
+    def _short_binary(higher, ops):
+        e = higher()
+        while tokens.maybe(*ops, stop_on_lf=True):
+            e = ops[tokens.next(*ops).name](e, higher())
+        return e
+
+    def _unary(current, higher, ops):
+        if tokens.maybe(*ops):
+            return UnaryExpression(ops[tokens.next(*ops).name], current())
+        return higher()
+    
+    def _list_of(what, until):
+        args = []
+        if not tokens.maybe(until):
+            args.append(what())
+            while tokens.next_if(',') and not tokens.maybe(until):
+                args.append(what())
+        tokens.next(until)
+        return args   
  
     return tokens.following(block('EOF'), 'EOF')
     

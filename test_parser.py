@@ -14,6 +14,14 @@ class ParserTestCase(unittest.TestCase):
         self.assertEquals(2, parse('42%4')())
         self.assertEquals(1024, parse('2**10')())
 
+    def test_empty_program(self):
+        program = parse('   ')
+        self.assertEquals(None, program())
+
+    def test_empty_expression(self):
+        program = parse('()')
+        self.assertEquals(None, program())
+
     def test_2_plus_2_with_spaces(self):
         program = parse('2   \t+ \t2')
         self.assertEquals(4, program())
@@ -137,6 +145,17 @@ class ParserTestCase(unittest.TestCase):
         self.assertEquals(False, parse('a=2, b=2, a!=b')())
         self.assertEquals(True, parse('a=2, b=3, a!=b')())
 
+    def test_in_not_int(self):
+        self.assertEquals(True, parse('2 in [1,2,3]')())
+        self.assertEquals(False, parse('4 in [1,2,3]')())
+
+        self.assertEquals(False, parse('2 not in [1,2,3]')())
+        self.assertEquals(True, parse('4 not in [1,2,3]')())
+
+        self.assertEquals(False, parse('2 not  \t\n in [1,2,3]')())
+        self.assertEquals(True, parse('4 not \t\n in [1,2,3]')())
+
+
     def test_comparation_operators(self):
         self.assertEquals(False, parse('a=2, b=3, a>b')())
         self.assertEquals(True, parse('a=2, b=3, a<b')())
@@ -179,11 +198,24 @@ class ParserTestCase(unittest.TestCase):
         self.assertEquals(1, counter[0])
         
     def test_not_operator(self):
-        self.assertEquals(True, parse('not (2+2==5)')())
-        self.assertEquals(False, parse('not (2+2==4)')())
+        self.assertEquals(True, parse('not 2+2==5')())
+        self.assertEquals(False, parse('not 2+2==4')())
+
+    def test_binary_invert_operator(self):
+        self.assertEquals(-43, parse('~42')())
+
+    def test_binary_shift(self):
+        self.assertEquals(42<<2, parse('42<<2')())
+        self.assertEquals(42>>2, parse('42>>2')())
+
+    def test_bitwise_ops(self):
+        self.assertEquals(8, parse('42&12')())
+        self.assertEquals(46, parse('42|12')())
+        self.assertEquals(38, parse('42^12')())
 
     def test_list_literal(self):
         self.assertEquals([1,2,3,4], parse('[1,2,2+1,2*2]')())
+        self.assertEquals([1,2,3,4], parse('[1,2,2+1,2*2,]')())
         
     def test_range_literal(self):
         obj = parse('5..8')()
@@ -239,9 +271,6 @@ class ParserErrorTestCase(unittest.TestCase):
 
     def test_multi_expr_program_with_error_in_the_last(self):
         self.assertRaises(UnexpectedToken, parse, '2+3, 4+5, )')
-
-    def test_no_such_thing_as_empty_program(self):
-        self.assertRaises(UnexpectedToken, parse, '')
 
     def test_when_unknown_char(self):
         with self.assertRaises(InvalidSyntax) as context:

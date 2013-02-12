@@ -146,7 +146,7 @@ class ModuleImport(object):
         return module
         
 
-class Program(object):
+class Block(object):
     def __init__(self, exprs):
         self.exprs = exprs
 
