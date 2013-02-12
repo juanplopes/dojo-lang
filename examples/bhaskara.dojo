@@ -10,5 +10,6 @@ iread = read => int
 a = 'Value for A: ' |> iread
 b = 'Value for B: ' |> iread
 c = 'Value for C: ' |> iread
+
 write(bhaskara(a,b,c))
 

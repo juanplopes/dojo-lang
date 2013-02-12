@@ -221,6 +221,9 @@ class ParserTestCase(unittest.TestCase):
         scope = Scope({'inc2':lambda a: a+2, 'str': str})
         self.assertEquals('44', parse('42 |> inc2 => str')(scope))
 
+    def test_partial_apply(self):
+        scope = Scope({'filter':filter})
+        self.assertEquals(range(2, 20, 2), parse('1..20 |> filter{@x:x%2==0}')(scope))
 
     def test_list_literal(self):
         self.assertEquals([1,2,3,4], parse('[1,2,2+1,2*2]')())

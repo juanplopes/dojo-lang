@@ -1,11 +1,11 @@
 # -*- coding:utf8 -*-
-import re
+from __future__ import print_function
 from ast import *
 from scanner import *
         
 def parse(expression):
     tokens = Scanner(expression, 
-                     '+', '-', '*', '/', '**', '%', '(', ')', '[', ']',
+                     '+', '-', '*', '/', '**', '%', '(', ')', '[', ']', '{', '}',
                      'return', '==', '!=', ',', '=', '@', ';', ':', '..',
                      '<', '<=', '>', '>=', '~', 'and', 'or', 'not', 'import',
                      '<<', '>>', '&', '|', '^', '|>', '=>', 'in', 'not in',
@@ -106,10 +106,10 @@ def parse(expression):
  
     def call():
         e = primary()
-        while tokens.next_if('(', stop_on_lf=True):
-            args = _list_of(expr, ')')
-            e = Call(e, args)
-        
+        while tokens.maybe('(', '{', stop_on_lf=True):
+            e = tokens.expect({
+                    '(': lambda x: Call(e, _list_of(expr, ')')),
+                    '{': lambda x: PartialCall(e, _list_of(expr, '}'))}) 
         return e
 
     def primary():
@@ -129,8 +129,8 @@ if __name__ == '__main__':
     def read(prompt): 
         return raw_input(prompt)
 
-    def write(message):
-        print message               
+    def write(*messages):
+        print(*messages)
     
     with open(sys.argv[1]) as f:
         data = f.read()

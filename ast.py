@@ -1,5 +1,4 @@
 # -*- coding:utf8 -*-
-import types
 
 class Scope(object):
     def __init__(self, data=None, parent=None):
@@ -96,6 +95,16 @@ class Composition(object):
     def __call__(self, scope):
         def y(*args):
             return self.rhs(scope)(self.lhs(scope)(*args))
+        return y
+
+class PartialCall(object):
+    def __init__(self, method, args):
+        self.method = method
+        self.args = args
+
+    def __call__(self, scope):
+        def y(*args):
+            return self.method(scope)(*([arg(scope) for arg in self.args]+list(args)))
         return y
 
 class BinaryExpression(object):

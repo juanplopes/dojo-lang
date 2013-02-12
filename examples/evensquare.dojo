@@ -1,0 +1,5 @@
+0..('Up to (exclusive): ' |> read |> int) 
+|> map{@x:x**2} 
+|> filter{@x:x%2==0} 
+|> sum 
+|> write{'The result is:'}
