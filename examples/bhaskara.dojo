@@ -5,8 +5,10 @@ bhaskara = @a,b,c: (
     return (-b+sqrt(delta))/2*a
 )
 
-a = int(read(1))
-b = int(read(2))
-c = int(read(3))
+iread = read => int
+
+a = 'Value for A: ' |> iread
+b = 'Value for B: ' |> iread
+c = 'Value for C: ' |> iread
 write(bhaskara(a,b,c))
 

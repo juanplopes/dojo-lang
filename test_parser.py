@@ -213,9 +213,22 @@ class ParserTestCase(unittest.TestCase):
         self.assertEquals(46, parse('42|12')())
         self.assertEquals(38, parse('42^12')())
 
+    def test_pipe_forward(self):
+        scope = Scope({'inc2':lambda a: a+2})
+        self.assertEquals(44, parse('42 |> inc2')(scope))
+
+    def test_composition(self):
+        scope = Scope({'inc2':lambda a: a+2, 'str': str})
+        self.assertEquals('44', parse('42 |> inc2 => str')(scope))
+
+
     def test_list_literal(self):
         self.assertEquals([1,2,3,4], parse('[1,2,2+1,2*2]')())
         self.assertEquals([1,2,3,4], parse('[1,2,2+1,2*2,]')())
+
+    def test_string_literal(self):
+        self.assertEquals('"abc', parse("'\"abc'")())
+        self.assertEquals("'abc", parse('"\'abc"')())
         
     def test_range_literal(self):
         obj = parse('5..8')()

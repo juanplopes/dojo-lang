@@ -80,6 +80,23 @@ class Call(object):
     def __call__(self, scope):
         return self.method(scope)(*[arg(scope) for arg in self.args])
     
+class PipeForward(object):
+    def __init__(self, arg, method):
+        self.arg = arg
+        self.method = method
+
+    def __call__(self, scope):
+        return self.method(scope)(self.arg(scope))
+
+class Composition(object):
+    def __init__(self, lhs, rhs):
+        self.lhs = lhs
+        self.rhs = rhs
+
+    def __call__(self, scope):
+        def y(*args):
+            return self.rhs(scope)(self.lhs(scope)(*args))
+        return y
 
 class BinaryExpression(object):
     def __init__(self, op, lhs, rhs):
