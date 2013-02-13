@@ -66,13 +66,26 @@ class VariableSet(object):
         scope.put(self.name, value)
         return value
 
-class MemberAccess(object):
-    def __init__(self, expr, name):
-        self.expr = expr
+class MemberGet(object):
+    def __init__(self, target, name):
+        self.target = target
         self.name = name
 
     def __call__(self, scope):
-        return getattr(self.expr(scope), self.name)
+        return getattr(self.target(scope), self.name)
+
+    def to_assignment(self, expr):
+        return MemberSet(self.target, self.name, expr)
+
+class MemberSet(object):
+    def __init__(self, target, name, value):
+        self.target = target
+        self.name = name
+        self.value = value
+
+    def __call__(self, scope):
+        return setattr(self.target(scope), self.name, self.value(scope))
+    
 
 class Return(object):
     def __init__(self, expr):
@@ -176,7 +189,7 @@ class ModuleImport(object):
         module = __import__(self.name, globals(), locals(), self.items)
         if len(self.items):
             for item in self.items:
-                scope.put(item, module.__getattribute__(item))
+                scope.put(item, getattr(module, item))
         else:
             scope.put(self.name, module)
         

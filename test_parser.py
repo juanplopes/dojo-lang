@@ -48,6 +48,9 @@ class ParserTestCase(unittest.TestCase):
     def test_explicit_precedence(self):
         self.assertEquals(20, parse('(2+3)*4')())
 
+    def test_set_member(self):
+        self.assertEquals(4, parse('import _ast(If), i = If(), i.lineno = 2, i.lineno*2')())
+
     def test_set_variable_is_also_expression(self):
         self.assertEquals(20, parse('a=(2+3)*4,c=b=a')())
 

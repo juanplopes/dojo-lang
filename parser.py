@@ -11,7 +11,7 @@ def parse(expression):
                      '<<', '>>', '&', '|', '^', '|>', '=>', 'in', 'not in', '.',
                      INTEGER = r'[0-9]+', 
                      FLOAT = r'[0-9]*\.[0-9]+', 
-                     IDENTIFIER = r'[a-zA-Z][a-zA-Z0-9]*',
+                     IDENTIFIER = r'[_a-zA-Z][_a-zA-Z0-9]*',
                      STRING = '|'.join([r'("([^\\"]|\\.)*")',r"('([^\\']|\\.)*')"]),
                      EOF = r'$')
 
@@ -112,18 +112,18 @@ def parse(expression):
         return begin
  
     def call():
-        e = member_access()
+        e = member_get()
         while tokens.maybe('(', '{', stop_on_lf=True):
             e = tokens.expect({
                     '(': lambda x: Call(e, _list_of(expr, ')')),
                     '{': lambda x: PartialCall(e, _list_of(expr, '}'))}) 
         return e
 
-    def member_access():
+    def member_get():
         e = primary()
         if tokens.next_if('.'):
             member = tokens.next('IDENTIFIER')
-            return MemberAccess(e, member.image)
+            return MemberGet(e, member.image)
         return e
 
     def primary():
