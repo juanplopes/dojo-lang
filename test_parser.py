@@ -232,6 +232,10 @@ class ParserTestCase(unittest.TestCase):
         self.assertEquals([1,2,3,4], parse('[1,2,2+1,2*2]')())
         self.assertEquals([1,2,3,4], parse('[1,2,2+1,2*2,]')())
 
+    def test_dict_literal(self):
+        self.assertEquals({}, parse('{}')())
+        self.assertEquals({'abc':123, 456:'qwe'}, parse('{"abc":123, 456:"qwe"}')())
+
     def test_string_literal(self):
         self.assertEquals('"abc', parse("'\"abc'")())
         self.assertEquals("'abc", parse('"\'abc"')())
@@ -273,6 +277,27 @@ class ParserTestCase(unittest.TestCase):
     def test_member_access(self):
         scope = Scope({'str': str, 'map': map})
         self.assertEquals('1,2,3,4', parse('[1,2,3,4] |> map{str} |> ",".join')(scope))
+
+    def test_item_access(self):
+        self.assertEquals(3, parse('a=[1,2,3,4], a[2]')())
+
+    def test_item_slice(self):
+        self.assertEquals([2,4], parse('a=[1,2,3,4], a[1:4:2]')())
+        self.assertEquals([4,3,2], parse('a=[1,2,3,4], a[:0:-1]')())
+        self.assertEquals([1,2,3,4], parse('a=[1,2,3,4], a[::]')())
+        self.assertEquals([2,4], parse('a=[1,2,3,4], a[1::2]')())
+        self.assertEquals([1,3], parse('a=[1,2,3,4], a[::2]')())
+        self.assertEquals([2], parse('a=[1,2,3,4], a[1:3:2]')())
+        self.assertEquals([3,4], parse('a=[1,2,3,4], a[2:]')())
+        self.assertEquals([1,2], parse('a=[1,2,3,4], a[:2]')())
+        self.assertEquals([4,3,2,1], parse('a=[1,2,3,4], a[::-1]')())
+
+    def test_item_access_set(self):
+        self.assertEquals([1,2,42,4], parse('a=[1,2,3,4], a[2]=42, a')())
+
+    def test_slice_set(self):
+        self.assertEquals([1,2,5,6], parse('a=[1,2,3,4], a[2:]=[5,6], a')())
+
 
         
 class ParserErrorTestCase(unittest.TestCase):

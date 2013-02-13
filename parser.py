@@ -120,11 +120,38 @@ def parse(expression):
         return e
 
     def member_get():
-        e = primary()
-        if tokens.next_if('.'):
+        e = item_slice()
+        while tokens.next_if('.'):
             member = tokens.next('IDENTIFIER')
-            return MemberGet(e, member.image)
+            e = MemberGet(e, member.image)
         return e
+        
+    def item_slice():
+        e = primary()
+
+        while tokens.next_if('[', stop_on_lf=True):
+            v1, v2, v3 = Literal(None), Literal(None), Literal(None)
+
+            if not tokens.maybe(':'):
+                v1 = expr()
+
+            if not tokens.maybe(']'):
+                if tokens.next(':') and not tokens.maybe(':', ']'):
+                    v2 = expr()
+                if tokens.next_if(':') and not tokens.maybe(']'):
+                    v3 = expr()
+                v1 = Slice(v1, v2, v3)
+
+            tokens.next(']')
+            e = ItemGet(e, v1)
+
+        return e
+
+    def _key_value():
+        key = expr()
+        tokens.next(':')
+        value = expr()
+        return (key, value)
 
     def primary():
         return tokens.expect({
@@ -133,7 +160,9 @@ def parse(expression):
             'STRING': lambda x: Literal(x.image[1:-1].decode('string-escape')),
             'IDENTIFIER': lambda x: VariableGet(x.image),
             '(': lambda x: block(')'),
-            '[': lambda x: ListLiteral(_list_of(expr, ']'))}) 
+            '[': lambda x: ListLiteral(_list_of(expr, ']')),
+            '{': lambda x: DictLiteral(_list_of(_key_value, '}')),            
+        }) 
         
     return block('EOF')
     

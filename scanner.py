@@ -94,4 +94,10 @@ class Scanner(object):
         
     def expect(self, actions, **opts):
         token = self.next(*actions.keys(), **opts)
-        return actions[token.name](token)
+        try:
+            return actions[token.name](token)
+        except KeyError:
+            if None not in actions:
+                raise
+            return actions[None](token)
+            

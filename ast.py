@@ -27,6 +27,14 @@ class ListLiteral(object):
     def __call__(self, scope):
         return [expr(scope) for expr in self.exprs]
 
+class DictLiteral(object):
+    def __init__(self, items):
+        self.items = items
+
+    def __call__(self, scope):
+        return {key(scope):value(scope) for key, value in self.items}
+
+
 class RangeLiteral(object):
     def __init__(self, begin, end, step):
         self.begin = begin
@@ -86,6 +94,35 @@ class MemberSet(object):
     def __call__(self, scope):
         return setattr(self.target(scope), self.name, self.value(scope))
     
+class ItemGet(object):
+    def __init__(self, target, index):
+        self.target = target
+        self.index = index
+
+    def __call__(self, scope):
+        return self.target(scope).__getitem__(self.index(scope))
+
+    def to_assignment(self, expr):
+        return ItemSet(self.target, self.index, expr)
+
+
+class ItemSet(object):
+    def __init__(self, target, index, expr):
+        self.target = target
+        self.index = index
+        self.expr = expr
+
+    def __call__(self, scope):
+        return self.target(scope).__setitem__(self.index(scope), self.expr(scope))
+
+class Slice(object):
+    def __init__(self, start, end, step):
+        self.start = start
+        self.end = end
+        self.step = step
+
+    def __call__(self, scope):
+        return slice(self.start(scope), self.end(scope), self.step(scope))
 
 class Return(object):
     def __init__(self, expr):
