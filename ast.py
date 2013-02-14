@@ -5,6 +5,8 @@ from opcode import opmap
 class CodeBuilder:
     def __init__(self):
         self.consts = {}
+        self.names = {}
+        self.varnames = {}
         self.code = []
 
     def emit(self, op, arg=None):
@@ -13,16 +15,29 @@ class CodeBuilder:
             self.code.append(arg&0xFF)
             self.code.append((arg>>8)&0xFF)
 
+    def make_new(self, m, value):
+        if value not in m:
+            m[value] = len(m)
+        return m[value]
+        
     def const(self, value):
-        if value not in self.consts:
-            self.consts[value] = len(self.consts)
-        return self.consts[value]
+        return self.make_new(self.consts, value)
+
+    def varname(self, name):
+        return self.make_new(self.varnames, name)
+
+    def name(self, name):
+        return self.make_new(self.names, name)
 
     def build(self):
-        consts = tuple(map(lambda x:x[0], sorted(self.consts.items(), key=lambda x:x[1])))
+        make_tuple = lambda m: tuple(map(lambda x:x[0], sorted(m.items(), key=lambda x:x[1])))
+        consts = make_tuple(self.consts)
+        names = make_tuple(self.names)
+        varnames = make_tuple(self.varnames)
+        
         code = ''.join([chr(b) for b in self.code]) + chr(opmap['RETURN_VALUE'])
         #print consts, map(ord, code)
-        return CodeType(0, 0, 1, 0, code, consts, (), (), 'test', 'test', 1, '')
+        return CodeType(0, 0, 1, 0, code, consts, names, varnames, 'test', 'test', 1, '')
 
 class Expression(object):
     def to_code(self):
@@ -72,8 +87,8 @@ class VariableGet(object):
     def __init__(self, name):
         self.name = name
 
-    def __call__(self, scope):
-        return scope.get(self.name)
+    def emit(self, code):
+        code.emit('LOAD_FAST', code.varname(self.name))
         
     def to_assignment(self, expr):
         return VariableSet(self.name, expr)
@@ -83,10 +98,10 @@ class VariableSet(object):
         self.name = name
         self.expr = expr
 
-    def __call__(self, scope):
-        value = self.expr(scope)
-        scope.put(self.name, value)
-        return value
+    def emit(self, code):
+        self.expr.emit(code)
+        code.emit('DUP_TOP')
+        code.emit('STORE_FAST', code.varname(self.name))
 
 class MemberGet(object):
     def __init__(self, target, name):
@@ -281,4 +296,6 @@ class Block(Expression):
         else:
             code.emit('LOAD_CONST', code.const(None))
 
+    def __call__(self):
+        return eval(self.to_code())
 

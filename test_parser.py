@@ -6,42 +6,40 @@ from scanner import InvalidSyntax, UnexpectedToken
 
 class ParserTestCase(unittest.TestCase):
     def test_constant(self):
-        code = parse('42').to_code()
-        self.assertEquals(42, eval(code))
+        self.assertEquals(42, parse('42')())
         
     def test_simple_binaries(self):
-        self.assertEquals(44, eval(parse('42+2').to_code()))
-        self.assertEquals(40, eval(parse('42-2').to_code()))
-        self.assertEquals(84, eval(parse('42*2').to_code()))
-        self.assertEquals(21, eval(parse('42/2').to_code()))
-        self.assertEquals(2, eval(parse('42%4').to_code()))
-        self.assertEquals(1024, eval(parse('2**10').to_code()))
+        self.assertEquals(44, parse('42+2')())
+        self.assertEquals(40, parse('42-2')())
+        self.assertEquals(84, parse('42*2')())
+        self.assertEquals(21, parse('42/2')())
+        self.assertEquals(2, parse('42%4')())
+        self.assertEquals(1024, parse('2**10')())
 
     def test_empty_program(self):
         program = parse('   ')
-        self.assertEquals(None, eval(program.to_code()))
+        self.assertEquals(None, program())
 
     def test_empty_expression(self):
         program = parse('()')
-        self.assertEquals(None, eval(program.to_code()))
+        self.assertEquals(None, program())
 
     def test_2_plus_2_with_spaces(self):
         program = parse('2   \t+ \t2')
-        self.assertEquals(4, eval(program.to_code()))
+        self.assertEquals(4, program())
 
     def test_expression_list_ending_in_comma(self):
         program = parse('1+2,3*4,')
-        self.assertEquals(12, eval(program.to_code()))
+        self.assertEquals(12, program())
         
     def test_unaries(self):
-        self.assertEquals(-2, eval(parse('-2').to_code()))
-        self.assertEquals(2, eval(parse('+2').to_code()))
+        program = parse('-2')
+        self.assertEquals(-2, program())
 
     def test_unaries_ambiguity(self):
         program = parse('4\n-2')
-        self.assertEquals(-2, eval(program.to_code()))
+        self.assertEquals(-2, program())
 
-'''
     def test_unaries_ambiguity_not(self):
         program = parse('4,-2')
         self.assertEquals(-2, program())
@@ -52,6 +50,10 @@ class ParserTestCase(unittest.TestCase):
     def test_explicit_precedence(self):
         self.assertEquals(20, parse('(2+3)*4')())
 
+    def test_set_variable_is_also_expression(self):
+        self.assertEquals(20, parse('a=(2+3)*4,c=b=a')())
+
+    '''
     def test_set_member(self):
         self.assertEquals(4, parse('import _ast(If), i = If(), i.lineno = 2, i.lineno*2')())
 
