@@ -1,20 +1,34 @@
 # -*- coding:utf8 -*-
+from types import CodeType
+from opcode import opmap
 
-class Scope(object):
-    def __init__(self, data=None, parent=None):
-        self.parent = parent
-        self.data = data or {}
+class CodeBuilder:
+    def __init__(self):
+        self.consts = {}
+        self.code = []
 
-    def get(self, name):
-        if name in self.data: return self.data[name]
-        if self.parent: return self.parent.get(name)
-        raise NameError("name '{}' is not defined".format(name))
-       
-    def put(self, name, value):
-        self.data[name] = value
+    def emit(self, op, arg=None):
+        self.code.append(opmap[op])
+        if arg != None:
+            self.code.append(arg&0xFF)
+            self.code.append((arg>>8)&0xFF)
 
-    def push(self):
-        return Scope(parent=self)
+    def const(self, value):
+        if value not in self.consts:
+            self.consts[value] = len(self.consts)
+        return self.consts[value]
+
+    def build(self):
+        consts = tuple(map(lambda x:x[0], sorted(self.consts.items(), key=lambda x:x[1])))
+        code = ''.join([chr(b) for b in self.code]) + chr(opmap['RETURN_VALUE'])
+        #print consts, map(ord, code)
+        return CodeType(0, 0, 1, 0, code, consts, (), (), 'test', 'test', 1, '')
+
+class Expression(object):
+    def to_code(self):
+        builder = CodeBuilder()
+        self.emit(builder)
+        return builder.build()
 
 class ReturnException(Exception):
     def __init__(self, value):
@@ -47,12 +61,12 @@ class RangeLiteral(object):
         else:
             return xrange(self.begin(scope), self.end(scope))
 
-class Literal(object):
+class Literal(Expression):
     def __init__(self, value):
         self.value = value
 
-    def __call__(self, scope):
-        return self.value
+    def emit(self, code):
+        code.emit('LOAD_CONST', code.const(self.value))
 
 class VariableGet(object):
     def __init__(self, name):
@@ -164,18 +178,30 @@ class PartialCall(object):
         self.args = args
 
     def __call__(self, scope):
+        pre=tuple(arg(scope) for arg in self.args)
         def y(*args):
-            return self.method(scope)(*([arg(scope) for arg in self.args]+list(args)))
+            return self.method(scope)(*(pre+args))
         return y
 
-class BinaryExpression(object):
+class BinaryExpression(Expression):
+    OPS = {
+        '+': 'BINARY_ADD',
+        '-': 'BINARY_SUBTRACT',
+        '*': 'BINARY_MULTIPLY',
+        '/': 'BINARY_DIVIDE',
+        '**': 'BINARY_POWER',
+        '%': 'BINARY_MODULO',
+    }    
+
     def __init__(self, op, lhs, rhs):
         self.op = op
         self.lhs = lhs
         self.rhs = rhs
 
-    def __call__(self, scope):
-        return self.op(self.lhs(scope), self.rhs(scope))
+    def emit(self, code):
+        self.lhs.emit(code)
+        self.rhs.emit(code)
+        code.emit(BinaryExpression.OPS[self.op])
     
 class AndExpression(object):
     def __init__(self, lhs, rhs):
@@ -194,12 +220,18 @@ class OrExpression(object):
         return self.lhs(scope) or self.rhs(scope)
     
 class UnaryExpression(object):
+    OPS = {
+        '+': 'UNARY_POSITIVE',
+        '-': 'UNARY_NEGATIVE',
+    }    
+
     def __init__(self, op, expr):
         self.op = op
         self.expr = expr
 
-    def __call__(self, scope):
-        return self.op(self.expr(scope))
+    def emit(self, code):
+        self.expr.emit(code)
+        code.emit(UnaryExpression.OPS[self.op])
 
 class Function(object):
     def __init__(self, args, body):
@@ -209,7 +241,7 @@ class Function(object):
     def __call__(self, scope):
         def y(*args):
             my_scope = scope.push()
-            for name, value in zip(self.args, args):
+            for name, value in izip(self.args, args):
                 my_scope.put(name, value)
             try:
                 return self.body(my_scope)            
@@ -233,17 +265,20 @@ class ModuleImport(object):
         return module
         
 
-class Block(object):
+class Block(Expression):
     def __init__(self, exprs):
         self.exprs = exprs
 
-    def __call__(self, scope = None):
-        result = None
-        scope = scope or Scope()
-        try:
-            for expr in self.exprs:
-                result = expr(scope)
-            return result
-        except ReturnException as e:
-            return e.value
+    def emit(self, code):
+        exprs = self.exprs
+        
+        if len(exprs):
+            exprs[0].emit(code)
+
+            for expr in exprs[1:]:
+                code.emit('POP_TOP')
+                expr.emit(code)
+        else:
+            code.emit('LOAD_CONST', code.const(None))
+
 

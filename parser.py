@@ -15,15 +15,15 @@ def parse(expression):
                      STRING = '|'.join([r'("([^\\"]|\\.)*")',r"('([^\\']|\\.)*')"]),
                      EOF = r'$')
 
-    def _binary(higher, ops):
+    def _binary(higher, *ops):
         def walk():
             e = higher()        
             while tokens.maybe(*ops, stop_on_lf=True):
-                e = BinaryExpression(ops[tokens.next(*ops).name], e, higher())
+                e = BinaryExpression(tokens.next(*ops).name, e, higher())
             return e
         return walk
 
-    def _raw(higher, ops):
+    def _raw(higher, *ops):
         def walk():
             e = higher()
             while tokens.maybe(*ops):
@@ -31,10 +31,10 @@ def parse(expression):
             return e
         return walk
 
-    def _unary(higher, ops):
+    def _unary(higher, *ops):
         def walk():
             if tokens.maybe(*ops):
-                return UnaryExpression(ops[tokens.next(*ops).name], walk())
+                return UnaryExpression(tokens.next(*ops).name, walk())
             return higher()
         return walk
     
@@ -85,23 +85,21 @@ def parse(expression):
         return ops()
 
     ops = lambda: range_literal()
-    ops = _unary(ops, {'-' : lambda x:-x, '~': lambda x: ~x })
-    ops = _binary(ops, {'**': lambda x,y:x**y})
-    ops = _binary(ops, {'*': lambda x,y:x*y, '/': lambda x,y:x/y, '%': lambda x,y:x%y})
-    ops = _binary(ops, {'+': lambda x,y:x+y, '-': lambda x,y:x-y})
-    ops = _binary(ops, {'<<': lambda x,y:x<<y, '>>': lambda x,y:x>>y})
-    ops = _binary(ops, {'&': lambda x,y:x&y})
-    ops = _binary(ops, {'^': lambda x,y:x^y})
-    ops = _binary(ops, {'|': lambda x,y:x|y})
-    ops = _binary(ops, {'==': lambda x,y: x==y, '!=': lambda x,y: x!=y})
-    ops = _binary(ops, {'<': lambda x,y: x<y, '>': lambda x,y: x>y})
-    ops = _binary(ops, {'<=': lambda x,y: x<=y, '>=': lambda x,y: x>=y})
-    ops = _binary(ops, {'in': lambda x,y: x in y, 'not in': lambda x,y: x not in y})
-    ops = _unary(ops, {'not': lambda x: not x})
-    ops = _raw(ops, {'and': AndExpression})
-    ops = _raw(ops, {'or': OrExpression})
-    ops = _raw(ops, {'=>': Composition})
-    ops = _raw(ops, {'|>': PipeForward})
+    ops = _unary(ops, '-', '+', '~')
+    ops = _binary(ops, '**')
+    ops = _binary(ops, '*', '/', '%')
+    ops = _binary(ops, '+', '-')
+    ops = _binary(ops, '<<', '>>')
+    ops = _binary(ops, '&')
+    ops = _binary(ops, '^')
+    ops = _binary(ops, '|')
+    ops = _binary(ops, '==', '!=', '<', '>', '<=', '>=')
+    ops = _binary(ops, 'in', 'not in')
+    ops = _unary(ops, 'not')
+    ops = _raw(ops, 'and')
+    ops = _raw(ops, 'or')
+    ops = _raw(ops, '=>')
+    ops = _raw(ops, '|>')
 
     def range_literal():
         begin = call()
