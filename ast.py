@@ -1,19 +1,23 @@
 # -*- coding:utf8 -*-
 from types import CodeType
-from opcode import opmap
+from opcode import opmap, cmp_op
 
 class CodeBuilder:
-    def __init__(self):
+    def __init__(self, filename='<string>', lineno=1, argnames=(), root=True):
+        self.argcount = len(argnames)
         self.consts = {}
         self.names = {}
-        self.varnames = {}
+        self.varnames = {name:i for i,name in enumerate(argnames)}
         self.code = []
+        self.filename = filename
+        self.lineno = lineno
+        self.root = root
 
-    def emit(self, op, arg=None):
+    def emit(self, op, arg1=None, arg2=None):
         self.code.append(opmap[op])
-        if arg != None:
-            self.code.append(arg&0xFF)
-            self.code.append((arg>>8)&0xFF)
+        if arg1 != None:
+            self.code.append(arg1&0xFF)
+            self.code.append((arg2 if arg2 else arg1>>8)&0xFF)
 
     def make_new(self, m, value):
         if value not in m:
@@ -23,21 +27,36 @@ class CodeBuilder:
     def const(self, value):
         return self.make_new(self.consts, value)
 
-    def varname(self, name):
-        return self.make_new(self.varnames, name)
+    def varname(self, name, write=False):
+        if write:
+            return self.make_new(self.varnames, name)
+        else:
+            return self.varnames.get(name)
 
     def name(self, name):
         return self.make_new(self.names, name)
+
+    def push(self):
+        return CodeBuilder(self.filename, self.lineno, (), False)
 
     def build(self):
         make_tuple = lambda m: tuple(map(lambda x:x[0], sorted(m.items(), key=lambda x:x[1])))
         consts = make_tuple(self.consts)
         names = make_tuple(self.names)
         varnames = make_tuple(self.varnames)
-        
         code = ''.join([chr(b) for b in self.code]) + chr(opmap['RETURN_VALUE'])
-        #print consts, map(ord, code)
-        return CodeType(0, 0, 1, 0, code, consts, names, varnames, 'test', 'test', 1, '')
+        return CodeType(self.argcount, 
+                        len(self.varnames), 
+                        1000, 
+                        0, 
+                        code, 
+                        consts, 
+                        names, 
+                        varnames, 
+                        self.filename, 
+                        self.filename, 
+                        self.lineno, 
+                        '')
 
 class Expression(object):
     def to_code(self):
@@ -49,19 +68,27 @@ class ReturnException(Exception):
     def __init__(self, value):
         self.value = value
 
-class ListLiteral(object):
+class ListLiteral(Expression):
     def __init__(self, exprs):
         self.exprs = exprs
 
-    def __call__(self, scope):
-        return [expr(scope) for expr in self.exprs]
+    def emit(self, code):
+        for expr in self.exprs:
+            expr.emit(code)
+        code.emit('BUILD_LIST', len(self.exprs))
 
-class DictLiteral(object):
+class DictLiteral(Expression):
     def __init__(self, items):
         self.items = items
 
-    def __call__(self, scope):
-        return {key(scope):value(scope) for key, value in self.items}
+    def emit(self, code):
+        code.emit('BUILD_MAP', 0)
+        for key, value in self.items:
+            code.emit('DUP_TOP')
+            value.emit(code)
+            code.emit('ROT_TWO')
+            key.emit(code)
+            code.emit('STORE_SUBSCR')
 
 
 class RangeLiteral(object):
@@ -83,17 +110,21 @@ class Literal(Expression):
     def emit(self, code):
         code.emit('LOAD_CONST', code.const(self.value))
 
-class VariableGet(object):
+class VariableGet(Expression):
     def __init__(self, name):
         self.name = name
 
     def emit(self, code):
-        code.emit('LOAD_FAST', code.varname(self.name))
+        idx = code.varname(self.name)
+        if idx!=None:
+            code.emit('LOAD_FAST', idx)        
+        else:
+            code.emit('LOAD_NAME', code.name(self.name))
         
     def to_assignment(self, expr):
         return VariableSet(self.name, expr)
 
-class VariableSet(object):
+class VariableSet(Expression):
     def __init__(self, name, expr):
         self.name = name
         self.expr = expr
@@ -101,7 +132,11 @@ class VariableSet(object):
     def emit(self, code):
         self.expr.emit(code)
         code.emit('DUP_TOP')
-        code.emit('STORE_FAST', code.varname(self.name))
+        idx = code.varname(self.name)
+        if idx:
+            code.emit('STORE_FAST', idx)        
+        else:
+            code.emit('STORE_NAME', code.name(self.name))
 
 class MemberGet(object):
     def __init__(self, target, name):
@@ -153,21 +188,24 @@ class Slice(object):
     def __call__(self, scope):
         return slice(self.start(scope), self.end(scope), self.step(scope))
 
-class Return(object):
+class Return(Expression):
     def __init__(self, expr):
         self.expr = expr
 
-    def __call__(self, scope):
-        raise ReturnException(self.expr(scope))
-
+    def emit(self, code):
+        self.expr.emit(code)
+        code.emit('RETURN_VALUE')
     
 class Call(object):
     def __init__(self, method, args):
         self.method = method
         self.args = args
 
-    def __call__(self, scope):
-        return self.method(scope)(*[arg(scope) for arg in self.args])
+    def emit(self, code):
+        self.method.emit(code)
+        for arg in self.args:
+            arg.emit(code)
+        code.emit('CALL_FUNCTION', len(self.args), 0)
     
 class PipeForward(object):
     def __init__(self, arg, method):
@@ -198,8 +236,13 @@ class PartialCall(object):
             return self.method(scope)(*(pre+args))
         return y
 
-class BinaryExpression(Expression):
+class Binary(Expression):
     OPS = {
+        '&': 'BINARY_AND',
+        '|': 'BINARY_OR',
+        '^': 'BINARY_XOR',
+        '<<': 'BINARY_LSHIFT',
+        '>>': 'BINARY_RSHIFT',
         '+': 'BINARY_ADD',
         '-': 'BINARY_SUBTRACT',
         '*': 'BINARY_MULTIPLY',
@@ -216,9 +259,20 @@ class BinaryExpression(Expression):
     def emit(self, code):
         self.lhs.emit(code)
         self.rhs.emit(code)
-        code.emit(BinaryExpression.OPS[self.op])
+        code.emit(Binary.OPS[self.op])
     
-class AndExpression(object):
+class Compare(Expression):
+    def __init__(self, op, lhs, rhs):
+        self.op = op
+        self.lhs = lhs
+        self.rhs = rhs
+
+    def emit(self, code):
+        self.lhs.emit(code)
+        self.rhs.emit(code)
+        code.emit('COMPARE_OP', cmp_op.index(self.op))
+    
+class And(object):
     def __init__(self, lhs, rhs):
         self.lhs = lhs
         self.rhs = rhs
@@ -226,7 +280,7 @@ class AndExpression(object):
     def __call__(self, scope):
         return self.lhs(scope) and self.rhs(scope)
         
-class OrExpression(object):
+class Or(object):
     def __init__(self, lhs, rhs):
         self.lhs = lhs
         self.rhs = rhs
@@ -234,10 +288,12 @@ class OrExpression(object):
     def __call__(self, scope):
         return self.lhs(scope) or self.rhs(scope)
     
-class UnaryExpression(object):
+class UnaryExpression(Expression):
     OPS = {
         '+': 'UNARY_POSITIVE',
         '-': 'UNARY_NEGATIVE',
+        'not': 'UNARY_NOT',
+        '~': 'UNARY_INVERT',
     }    
 
     def __init__(self, op, expr):
@@ -248,21 +304,16 @@ class UnaryExpression(object):
         self.expr.emit(code)
         code.emit(UnaryExpression.OPS[self.op])
 
-class Function(object):
+class Function(Expression):
     def __init__(self, args, body):
         self.args = args
         self.body = body
 
-    def __call__(self, scope):
-        def y(*args):
-            my_scope = scope.push()
-            for name, value in izip(self.args, args):
-                my_scope.put(name, value)
-            try:
-                return self.body(my_scope)            
-            except ReturnException as e:
-                return e.value
-        return y
+    def emit(self, code):
+        body_code = CodeBuilder(argnames = self.args)
+        self.body.emit(body_code)
+        code.emit('LOAD_CONST', code.const(body_code.build()))
+        code.emit('MAKE_FUNCTION', 0)
 
 class ModuleImport(object):
     def __init__(self, name, items):
@@ -296,6 +347,6 @@ class Block(Expression):
         else:
             code.emit('LOAD_CONST', code.const(None))
 
-    def __call__(self):
-        return eval(self.to_code())
+    def __call__(self, globals = None, locals = None):
+        return eval(self.to_code(), globals, locals)
 

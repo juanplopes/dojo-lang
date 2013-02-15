@@ -31,7 +31,16 @@ class ParserTestCase(unittest.TestCase):
     def test_expression_list_ending_in_comma(self):
         program = parse('1+2,3*4,')
         self.assertEquals(12, program())
-        
+
+    def test_multi_expr_program(self):
+        self.assertEquals(9, parse('2+3, 4+5')())
+
+    def test_set_variable_and_get_after(self):
+        self.assertEquals(5, parse('a=2, a+3')())
+
+    def test_power_one_variable_to_another(self):
+        self.assertEquals(1024, parse('a=2, b=10, a**b')())
+
     def test_unaries(self):
         program = parse('-2')
         self.assertEquals(-2, program())
@@ -50,73 +59,45 @@ class ParserTestCase(unittest.TestCase):
     def test_explicit_precedence(self):
         self.assertEquals(20, parse('(2+3)*4')())
 
+    def test_get_variable_from_locals_and_global(self):
+        self.assertEquals(7, parse('a+b')({'a':2,'b':3}, {'a':4}))
+
+    def test_local_variable_overrides_global(self):
+        self.assertEquals(9, parse('b=5,a+b')({'a':2,'b':3}, {'a':4}))
+
     def test_set_variable_is_also_expression(self):
         self.assertEquals(20, parse('a=(2+3)*4,c=b=a')())
-
-    '''
-    def test_set_member(self):
-        self.assertEquals(4, parse('import _ast(If), i = If(), i.lineno = 2, i.lineno*2')())
-
-    def test_set_variable_is_also_expression(self):
-        self.assertEquals(20, parse('a=(2+3)*4,c=b=a')())
-
-    def test_set_variable_on_global_scope_will_change_variables(self):
-        scope = Scope()
-        self.assertEquals(20, parse('a=(2+3)*4,c=b=a')(scope))
-        self.assertEquals(20, scope.get('a'))
-        self.assertEquals(20, scope.get('b'))
-        self.assertEquals(20, scope.get('c'))
 
     def test_callable(self):
-        scope = Scope({'add':lambda x, y:x+y})
+        scope = {'add':lambda x, y:x+y}
         self.assertEquals(14, parse('2*add(5, 2)')(scope))
-        
-    def test_double_callable(self):
-        scope = Scope({'add':lambda x, y:lambda:x+y})
-        self.assertEquals(14, parse('2*add(5, 2)()')(scope))
 
+    def test_double_callable(self):
+        scope = {'add':lambda x:lambda y:x+y}
+        self.assertEquals(14, parse('2*add(5)(2)')(scope))
 
     def test_callable_ambiguity(self):
-        scope = Scope({'add':lambda x, y:x+y})
+        scope = {'add':lambda x, y:x+y}
         self.assertEquals(2, parse('add\n(5, 2)')(scope))
 
     def test_callable_ambiguity_not(self):
-        scope = Scope({'add':lambda x, y:x+y})
+        scope = {'add':lambda x, y:x+y}
         self.assertEquals(2, parse('add,(5, 2)')(scope))
 
     def test_callable_with_non_primary(self):
-        scope = Scope({'add':lambda x, y:x+y})
+        scope = {'add':lambda x, y:x+y}
         self.assertEquals(20, parse('2*add(2+2, 3+3)')(scope))
 
     def test_call_functions_multiline(self):
-        scope = Scope({'add':lambda a,b,c:a+b+c})
+        scope = {'add':lambda a,b,c:a+b+c}
         self.assertEquals(18, parse("""add(
             2+2, 
             3+3
             ,4+4)""")(scope))
-
-    def test_call_functions_multiline(self):
-        scope = Scope({'add':lambda a,b,c:a+b+c})
-        self.assertEquals(18, parse("""add(
-            2+2, 
-            3+3
-            ,4+4)""")(scope))
-
-
-
-    def test_multi_expr_program(self):
-        self.assertEquals(9, parse('2+3, 4+5')())
-
-
-    def test_set_variable_and_get_after(self):
-        self.assertEquals(5, parse('a=2, a+3')())
-
-    def test_power_one_variable_to_another(self):
-        self.assertEquals(1024, parse('a=2, b=10, a**b')())
 
     def test_define_method_and_use_later(self):
         self.assertEquals(1024, parse('pow=@x,y:x**y, pow(2, 10)')())
-        
+
     def test_define_multiline_functions(self):
         self.assertEquals(1024, parse("""
             test = @x,y:(
@@ -150,7 +131,7 @@ class ParserTestCase(unittest.TestCase):
         self.assertEquals(False, parse('a=2, b=3, a==b')())
 
 
-    def test_equality_operator(self):
+    def test_inequality_operator(self):
         self.assertEquals(False, parse('a=2, b=2, a!=b')())
         self.assertEquals(True, parse('a=2, b=3, a!=b')())
 
@@ -174,6 +155,44 @@ class ParserTestCase(unittest.TestCase):
 
         self.assertEquals(True, parse('a=2, b=2, a>=b')())
         self.assertEquals(True, parse('a=2, b=2, a<=b')())
+
+    def test_not_operator(self):
+        self.assertEquals(True, parse('not 2+2==5')())
+        self.assertEquals(False, parse('not 2+2==4')())
+
+    def test_binary_invert_operator(self):
+        self.assertEquals(-43, parse('~42')())
+
+    def test_binary_shift(self):
+        self.assertEquals(42<<2, parse('42<<2')())
+        self.assertEquals(42>>2, parse('42>>2')())
+
+    def test_bitwise_ops(self):
+        self.assertEquals(8, parse('42&12')())
+        self.assertEquals(46, parse('42|12')())
+        self.assertEquals(38, parse('42^12')())
+
+    def test_list_literal(self):
+        self.assertEquals([1,2,3,4], parse('[1,2,2+1,2*2]')())
+        self.assertEquals([1,2,3,4], parse('[1,2,2+1,2*2,]')())
+
+    def test_string_literal(self):
+        self.assertEquals('"abc', parse("'\"abc'")())
+        self.assertEquals("'abc", parse('"\'abc"')())
+
+    def test_dict_literal(self):
+        self.assertEquals({}, parse('{}')())
+        self.assertEquals({'abc':123, 456:'qwe'}, parse('{"abc":123, 456:"qwe"}')())
+
+
+    '''
+    def test_define_method_with_closure_and_use_later(self):
+        self.assertEquals(1024, parse('pow=@x:@y:x**y, pow(2)(10)')())
+
+
+    def test_set_member(self):
+        self.assertEquals(4, parse('import _ast(If), i = If(), i.lineno = 2, i.lineno*2')())
+
 
     def test_and_operator(self):
         counter = [0]
@@ -205,22 +224,6 @@ class ParserTestCase(unittest.TestCase):
 
         self.assertEquals(True, parse('2+2==4 or 2+3==5')(scope))
         self.assertEquals(1, counter[0])
-        
-    def test_not_operator(self):
-        self.assertEquals(True, parse('not 2+2==5')())
-        self.assertEquals(False, parse('not 2+2==4')())
-
-    def test_binary_invert_operator(self):
-        self.assertEquals(-43, parse('~42')())
-
-    def test_binary_shift(self):
-        self.assertEquals(42<<2, parse('42<<2')())
-        self.assertEquals(42>>2, parse('42>>2')())
-
-    def test_bitwise_ops(self):
-        self.assertEquals(8, parse('42&12')())
-        self.assertEquals(46, parse('42|12')())
-        self.assertEquals(38, parse('42^12')())
 
     def test_pipe_forward(self):
         scope = Scope({'inc2':lambda a: a+2})
@@ -234,18 +237,6 @@ class ParserTestCase(unittest.TestCase):
         scope = Scope({'filter':filter})
         self.assertEquals(range(2, 20, 2), parse('1..20 |> filter{@x:x%2==0}')(scope))
 
-    def test_list_literal(self):
-        self.assertEquals([1,2,3,4], parse('[1,2,2+1,2*2]')())
-        self.assertEquals([1,2,3,4], parse('[1,2,2+1,2*2,]')())
-
-    def test_dict_literal(self):
-        self.assertEquals({}, parse('{}')())
-        self.assertEquals({'abc':123, 456:'qwe'}, parse('{"abc":123, 456:"qwe"}')())
-
-    def test_string_literal(self):
-        self.assertEquals('"abc', parse("'\"abc'")())
-        self.assertEquals("'abc", parse('"\'abc"')())
-        
     def test_range_literal(self):
         obj = parse('5..8')()
         it = iter(obj)
