@@ -22,7 +22,7 @@ class Parser(TokenStream):
 
     def block(self, until):
         exprs = []
-        while self.ignore(',', ';') and not self.next_if(until):
+        while self.ignore(';') and not self.next_if(until):
             exprs.append(self.expr())
         return Block(exprs)
         
@@ -32,7 +32,7 @@ class Parser(TokenStream):
             e = clazz(self.next(*ops).name, e, higher())
         return e
 
-    def _raw(self, higher, *ops):
+    def _raw(self, higher, ops):
         e = higher()
         while self.maybe(*ops):
             e = ops[self.next(*ops).name](e, higher())
@@ -72,8 +72,8 @@ class Parser(TokenStream):
             name = self.next('IDENTIFIER').image
             items = []        
             if self.next_if('(', stop_on_lf=True):
-                items = self._list_of(lambda: self.next('IDENTIFIER').image, ')')
-            return ModuleImport(name, items)
+                items = self._list_of(lambda: self.next('IDENTIFIER', '*').image, ')')
+            return Import(name, items)
         return self.function()
 
     def function(self):
@@ -85,9 +85,9 @@ class Parser(TokenStream):
 
     OPS = [
         (_raw, {'|>':PipeForward}), 
-        (_raw, {'=>':PartialCall}), 
-        (_raw, {'or':OrElse}), 
-        (_raw, {'and':AndAlso}), 
+        (_raw, {'=>':Composition}), 
+        (_binary, BooleanOp, 'or'),
+        (_binary, BooleanOp, 'and'),
         (_unary, 'not'),
         (_binary, CompareOp, 'in', 'not in'),
         (_binary, CompareOp, '==', '!=', '<', '>', '<=', '>='),

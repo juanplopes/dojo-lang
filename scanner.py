@@ -48,9 +48,9 @@ class Scanner(object):
             match = pattern.match(source[pos:])
             if match:
                 w, s = match.groups()[:2]
-                line = line+w.count('\n')
-                column = (len(w) - w.rfind('\n') - 1) + ('\n' not in w and column or 1)
-                best = self.best_of(best, Token(name, w, s, pos, line, column), **opts)
+                t_line = line+w.count('\n')
+                t_column = (len(w) - w.rfind('\n') - 1) + ('\n' not in w and column or 1)
+                best = self.best_of(best, Token(name, w, s, pos, t_line, t_column), **opts)
         
         return best
 

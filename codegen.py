@@ -1,6 +1,5 @@
 # -*- coding:utf8 -*-
-from types import CodeType
-from opcode import opmap, cmp_op
+import functools, types, opcode
 
 BINARY_OPS = {
     '&': 'BINARY_AND',
@@ -17,11 +16,23 @@ BINARY_OPS = {
 }
 
 UNARY_OPS = {
-        '+': 'UNARY_POSITIVE',
-        '-': 'UNARY_NEGATIVE',
-        'not': 'UNARY_NOT',
-        '~': 'UNARY_INVERT',
+    '+': 'UNARY_POSITIVE',
+    '-': 'UNARY_NEGATIVE',
+    'not': 'UNARY_NOT',
+    '~': 'UNARY_INVERT',
 }   
+
+BOOLEAN_OPS = {
+    'and': 'JUMP_IF_FALSE_OR_POP',
+    'or': 'JUMP_IF_TRUE_OR_POP',
+}
+
+def compose(f, g, unpack=False):
+    def newfunc(*args, **kwargs):
+        return g(f(*args, **kwargs))
+      
+    newfunc.func = g
+    return newfunc
 
 class CodeGenerator:
     def __init__(self, filename='<string>', lineno=1, argnames=(), root=True):
@@ -52,6 +63,16 @@ class CodeGenerator:
             self.emit(key)
             self.emit_op('STORE_SUBSCR')
     
+    def emit_RangeLiteral(self, e):
+        self.emit_op('LOAD_CONST', self.const(xrange))
+        self.emit(e.begin)
+        self.emit(e.end)
+        if e.step:
+            self.emit(e.step)
+            self.emit_op('CALL_FUNCTION', 3, 0)
+        else:
+            self.emit_op('CALL_FUNCTION', 2)
+    
     def emit_Literal(self, e):
         self.emit_op('LOAD_CONST', self.const(e.value))
 
@@ -75,11 +96,29 @@ class CodeGenerator:
         self.emit(e.expr)
         self.emit_op('RETURN_VALUE')
 
+    def emit_PartialCall(self, e):
+        self.emit_op('LOAD_CONST', self.const(functools.partial))
+        self.emit(e.method)
+        for arg in e.args:
+            self.emit(arg)
+        self.emit_op('CALL_FUNCTION', len(e.args)+1, 0)
+
+    def emit_Composition(self, e):
+        self.emit_op('LOAD_CONST', self.const(compose))
+        self.emit(e.lhs)
+        self.emit(e.rhs)
+        self.emit_op('CALL_FUNCTION', 2, 0)
+
     def emit_Call(self, e):
         self.emit(e.method)
         for arg in e.args:
             self.emit(arg)
         self.emit_op('CALL_FUNCTION', len(e.args), 0)
+
+    def emit_PipeForward(self, e):
+        self.emit(e.method)
+        self.emit(e.arg)
+        self.emit_op('CALL_FUNCTION', 1, 0)
 
     def emit_BinaryOp(self, e):
         self.emit(e.lhs)
@@ -89,17 +128,47 @@ class CodeGenerator:
     def emit_CompareOp(self, e):
         self.emit(e.lhs)
         self.emit(e.rhs)
-        self.emit_op('COMPARE_OP', cmp_op.index(e.op))
+        self.emit_op('COMPARE_OP', opcode.cmp_op.index(e.op))
 
     def emit_UnaryOp(self, e):
         self.emit(e.expr)
         self.emit_op(UNARY_OPS[e.op])
+
+    def emit_BooleanOp(self, e):
+        self.emit(e.lhs)
+        critical = self.emit_op('NOP', 0)
+        self.emit(e.rhs)
+        self.patch_op(critical, BOOLEAN_OPS[e.op], len(self.code))
 
     def emit_Function(self, e):
         body_code = CodeGenerator(argnames = e.args)
         body_code.emit(e.body)
         self.emit_op('LOAD_CONST', self.const(body_code.assemble()))
         self.emit_op('MAKE_FUNCTION', 0)
+
+    def emit_MemberGet(self, e):
+        self.emit(e.target)
+        self.emit_op('LOAD_ATTR', self.name(e.name))
+
+    def emit_MemberSet(self, e):
+        self.emit(e.value)
+        self.emit(e.target)
+        self.emit_op('STORE_ATTR', self.name(e.name))
+
+    def emit_Import(self, e):
+        self.emit_op('LOAD_CONST', self.const(-1))
+        self.emit_op('LOAD_CONST', self.const(tuple(e.items)))
+        self.emit_op('IMPORT_NAME', self.name(e.name))
+        self.emit_op('DUP_TOP')
+        
+        if '*' in e.items:
+            self.emit_op('IMPORT_STAR')
+        elif e.items:
+            for item in e.items:
+                self.emit_op('IMPORT_FROM', self.name(item))
+                self.emit_op('STORE_NAME', self.name(item))
+        else:
+            self.emit_op('STORE_NAME', self.name(e.name))
 
     def emit_Block(self, e):
         if len(e.exprs):
@@ -112,10 +181,18 @@ class CodeGenerator:
             self.emit_op('LOAD_CONST', self.const(None))
 
     def emit_op(self, op, arg1=None, arg2=None):
-        self.code.append(opmap[op])
+        begin = len(self.code)
+        self.code.append(opcode.opmap[op])
         if arg1 != None:
             self.code.append(arg1&0xFF)
             self.code.append((arg2 if arg2 else arg1>>8)&0xFF)
+        return begin
+
+    def patch_op(self, begin, op, arg1=None, arg2=None):
+        self.code[begin] = opcode.opmap[op]
+        if arg1 != None:
+            self.code[begin+1] = arg1&0xFF
+            self.code[begin+2] = (arg2 if arg2 else arg1>>8)&0xFF
 
     def make_new(self, m, value):
         if value not in m:
@@ -139,8 +216,8 @@ class CodeGenerator:
         consts = make_tuple(self.consts)
         names = make_tuple(self.names)
         varnames = make_tuple(self.varnames)
-        code = ''.join([chr(b) for b in self.code]) + chr(opmap['RETURN_VALUE'])
-        return CodeType(self.argcount, 
+        code = ''.join([chr(b) for b in self.code]) + chr(opcode.opmap['RETURN_VALUE'])
+        return types.CodeType(self.argcount, 
                         len(self.varnames), 
                         1000, 
                         0, 

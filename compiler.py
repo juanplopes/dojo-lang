@@ -26,7 +26,5 @@ if __name__ == '__main__':
     
     with open(sys.argv[1]) as f:
         data = f.read()
-        scope.put('read', read)
-        scope.put('write', write)
-        eval(dojo_compile(data), scope)
+        dojo_compile(data)()
 
