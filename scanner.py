@@ -2,6 +2,19 @@
 import re, sys, json
 from ast import *
 from itertools import chain
+
+class InvalidSyntax(Exception):
+    def __init__(self, line, column, source):
+        super(Exception, self).__init__(
+            "Invalid syntax at line {} column {}: '{}'"
+                .format(line, column, source))
+    
+class UnexpectedToken(Exception):
+    def __init__(self, token, allowed):
+        super(Exception, self).__init__(        
+            "Unexpected '{}' at line {} column {}, expected one of: {}"
+                .format(token.name, token.line, token.column, ", ".join(
+                    map(lambda x:"'{}'".format(x), allowed))))
  
 class Token(object):
     EOF = lambda p: Token('EOF', '', p)
@@ -16,48 +29,41 @@ class Token(object):
         self.raw_len = len(whites) + len(image)
         self.lf = '\n' in whites
 
-class InvalidSyntax(Exception):
-    def __init__(self, line, column, expr):
-        super(Exception, self).__init__(
-            "Invalid syntax at line {} column {}: '{}'"
-                .format(line, column, expr))
-    
-class UnexpectedToken(Exception):
-    def __init__(self, token, allowed):
-        super(Exception, self).__init__(        
-            "Unexpected '{}' at line {} column {}, expected one of: {}"
-                .format(token.name, token.line, token.column, ", ".join(
-                    map(lambda x:"'{}'".format(x), allowed))))
-
 class Scanner(object):
-    def __init__(self, expr, *symbols, **named):
+    def __init__(self, *symbols, **named):
         self.tokens = list(chain(
              ((x, re.compile('^(\s*)({})'.format(re.escape(x).replace('\\ ', '\s+')))) for x in symbols),
              ((k, re.compile('^(\s*)({})'.format(v))) for k, v in named.items())))
+        
+    def best_of(self, a, b, **opts):
+        if not b: return a
+        if opts.get('stop_on_lf') and b.lf: return a
+        return max(a, b, key=lambda x:x and len(x.image))
 
-        self.expr = expr
+    def scan(self, source, pos, line, column, **opts):
+        best = None
+
+        for token in self.tokens:
+            name, pattern = token
+            match = pattern.match(source[pos:])
+            if match:
+                w, s = match.groups()[:2]
+                line = line+w.count('\n')
+                column = (len(w) - w.rfind('\n') - 1) + ('\n' not in w and column or 1)
+                best = self.best_of(best, Token(name, w, s, pos, line, column), **opts)
+        
+        return best
+
+class TokenStream(object):
+    def __init__(self, scanner, source):
+        self.scanner = scanner
+        self.source = source
         self.pos = 0
         self.line = 1
         self.column = 1
- 
-    def match(self, token):
-        name, pattern = token
-        match = pattern.match(self.expr[self.pos:])
-        if match:
-            w, s = match.groups()[:2]
-            line = self.line+w.count('\n')
-            column = (len(w) - w.rfind('\n') - 1) + ('\n' not in w and self.column or 1)
-            return Token(name, w, s, self.pos, line, column)
- 
-    def reducer(self, **opts):
-        def y(a, b):
-            if not b: return a
-            if opts.get('stop_on_lf') and b.lf: return a
-            return max(a, b, key=lambda x:x and len(x.image))
-        return y
 
     def peek(self, **opts):
-        return reduce(self.reducer(**opts), map(self.match, self.tokens))
+        return self.scanner.scan(self.source, self.pos, self.line, self.column, **opts)
  
     def maybe(self, *allowed, **opts):
         token = self.peek(**opts)
@@ -68,7 +74,7 @@ class Scanner(object):
         token = self.peek(**opts)
 
         if not token:
-            raise InvalidSyntax(self.line, self.column, self.expr[self.pos:self.pos+25])
+            raise InvalidSyntax(self.line, self.column, self.source[self.pos:self.pos+25])
 
         if token.name not in allowed:
             raise UnexpectedToken(token, allowed)

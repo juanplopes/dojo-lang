@@ -1,182 +1,170 @@
 # -*- coding:utf8 -*-
-from __future__ import print_function
 from ast import *
 from scanner import *
-        
-def parse(expression):
-    tokens = Scanner(expression, 
-                     '+', '-', '*', '/', '**', '%', '(', ')', '[', ']', '{', '}',
-                     'return', '==', '!=', ',', '=', '@', ';', ':', '..',
-                     '<', '<=', '>', '>=', '~', 'and', 'or', 'not', 'import',
-                     '<<', '>>', '&', '|', '^', '|>', '=>', 'in', 'not in', '.',
-                     INTEGER = r'[0-9]+', 
-                     FLOAT = r'[0-9]*\.[0-9]+', 
-                     IDENTIFIER = r'[_a-zA-Z][_a-zA-Z0-9]*',
-                     STRING = '|'.join([r'("([^\\"]|\\.)*")',r"('([^\\']|\\.)*')"]),
-                     EOF = r'$')
-
-    def _binary(higher, clazz, *ops):
-        def walk():
-            e = higher()        
-            while tokens.maybe(*ops, stop_on_lf=True):
-                e = clazz(tokens.next(*ops).name, e, higher())
-            return e
-        return walk
-
-    def _raw(higher, *ops):
-        def walk():
-            e = higher()
-            while tokens.maybe(*ops):
-                e = ops[tokens.next(*ops).name](e, higher())
-            return e
-        return walk
-
-    def _unary(higher, *ops):
-        def walk():
-            if tokens.maybe(*ops):
-                return UnaryExpression(tokens.next(*ops).name, walk())
-            return higher()
-        return walk
+from functools import partial
     
-    def _list_of(what, until):
-        args = []
-        if not tokens.maybe(until):
-            args.append(what())
-            while tokens.next_if(',') and not tokens.maybe(until):
-                args.append(what())
-        tokens.next(until)
-        return args 
- 
-    def block(until):
+SCANNER = Scanner('+', '-', '*', '/', '**', '%', '(', ')', '[', ']', '{', '}',
+                  'return', '==', '!=', ',', '=', '@', ';', ':', '..',
+                  '<', '<=', '>', '>=', '~', 'and', 'or', 'not', 'import',
+                  '<<', '>>', '&', '|', '^', '|>', '=>', 'in', 'not in', '.',
+                  INTEGER = r'[0-9]+', 
+                  FLOAT = r'[0-9]*\.[0-9]+', 
+                  IDENTIFIER = r'[_a-zA-Z][_a-zA-Z0-9]*',
+                  STRING = '|'.join([r'("([^\\"]|\\.)*")',r"('([^\\']|\\.)*')"]),
+                  EOF = r'$')
+        
+class Parser(TokenStream):
+    def __init__(self, source):
+        super(Parser, self).__init__(SCANNER, source)
+
+    def program(self):
+        return self.block('EOF')
+
+    def block(self, until):
         exprs = []
-        while tokens.ignore(',', ';') and not tokens.next_if(until):
-            exprs.append(expr())
+        while self.ignore(',', ';') and not self.next_if(until):
+            exprs.append(self.expr())
         return Block(exprs)
+        
+    def _binary(self, higher, clazz, *ops):
+        e = higher()        
+        while self.maybe(*ops, stop_on_lf=True):
+            e = clazz(self.next(*ops).name, e, higher())
+        return e
 
-    def expr():
-        return return_expression()
+    def _raw(self, higher, *ops):
+        e = higher()
+        while self.maybe(*ops):
+            e = ops[self.next(*ops).name](e, higher())
+        return e
 
-    def return_expression():
-        if tokens.next_if('return'):
-            return Return(expr())
-        return assignment()
+    def _unary(self, higher, *ops):
+        if self.maybe(*ops):
+            return UnaryOp(self.next(*ops).name, self._unary(higher, *ops))
+        return higher()
 
-    def assignment():
-        to = import_expression()
-        if hasattr(to, 'to_assignment') and tokens.next_if('='):
-            value = expr()
+    def _list_of(self, what, until):
+        args = []
+        if not self.maybe(until):
+            args.append(what())
+            while self.next_if(',') and not self.maybe(until):
+                args.append(what())
+        self.next(until)
+        return args 
+
+    def expr(self):
+        return self.return_expression()
+
+    def return_expression(self):
+        if self.next_if('return'):
+            return Return(self.expr())
+        return self.assignment()
+
+    def assignment(self):
+        to = self.import_expression()
+        if hasattr(to, 'to_assignment') and self.next_if('='):
+            value = self.expr()
             return to.to_assignment(value)
         return to
 
-    def import_expression():
-        if tokens.next_if('import'):
-            name = tokens.next('IDENTIFIER').image
+    def import_expression(self):
+        if self.next_if('import'):
+            name = self.next('IDENTIFIER').image
             items = []        
-            if tokens.next_if('(', stop_on_lf=True):
-                items = _list_of(lambda: tokens.next('IDENTIFIER').image, ')')
+            if self.next_if('(', stop_on_lf=True):
+                items = self._list_of(lambda: self.next('IDENTIFIER').image, ')')
             return ModuleImport(name, items)
-        return function()
+        return self.function()
 
-    def function():
-        if tokens.next_if('@'):
-            args = _list_of(lambda: tokens.next('IDENTIFIER').image, ':')
-            body = expr()
+    def function(self):
+        if self.next_if('@'):
+            args = self._list_of(lambda: self.next('IDENTIFIER').image, ':')
+            body = self.expr()
             return Function(args, body)
-        return ops()
+        return self.operators()
 
-    ops = lambda: range_literal()
-    ops = _unary(ops, Binary, '-', '+', '~')
-    ops = _binary(ops, Binary, '**')
-    ops = _binary(ops, Binary, '*', '/', '%')
-    ops = _binary(ops, Binary, '+', '-')
-    ops = _binary(ops, Binary, '<<', '>>')
-    ops = _binary(ops, Binary, '&')
-    ops = _binary(ops, Binary, '^')
-    ops = _binary(ops, Binary, '|')
-    ops = _binary(ops, Compare, '==', '!=', '<', '>', '<=', '>=')
-    ops = _binary(ops, Compare, 'in', 'not in')
-    ops = _unary(ops, 'not')
-    ops = _raw(ops, {'and':And})
-    ops = _raw(ops, {'or': Or})
-    ops = _raw(ops, {'=>':PartialCall})
-    ops = _raw(ops, {'|>':PipeForward})
+    OPS = [
+        (_raw, {'|>':PipeForward}), 
+        (_raw, {'=>':PartialCall}), 
+        (_raw, {'or':OrElse}), 
+        (_raw, {'and':AndAlso}), 
+        (_unary, 'not'),
+        (_binary, CompareOp, 'in', 'not in'),
+        (_binary, CompareOp, '==', '!=', '<', '>', '<=', '>='),
+        (_binary, BinaryOp, '|'),
+        (_binary, BinaryOp, '^'),
+        (_binary, BinaryOp, '&'),
+        (_binary, BinaryOp, '<<', '>>'),
+        (_binary, BinaryOp, '+', '-'),
+        (_binary, BinaryOp, '*', '/', '%'),
+        (_binary, BinaryOp, '**'),
+        (_unary, '-', '+', '~'),
+    ]
 
-    def range_literal():
-        begin = call()
-        if tokens.next_if('..'):
-            end = call()
-            step = call() if tokens.next_if(':') else None
+    def operators(self):
+        current = self.range_literal
+        for op in reversed(Parser.OPS):
+            current = partial(op[0], self, current, *op[1:])
+        return current()
+
+    def range_literal(self):
+        begin = self.call()
+        if self.next_if('..'):
+            end = self.call()
+            step = self.call() if self.next_if(':') else None
             return RangeLiteral(begin, end, step)
         return begin
- 
-    def call():
-        e = member_get()
-        while tokens.maybe('(', '{', stop_on_lf=True):
-            e = tokens.expect({
-                    '(': lambda x: Call(e, _list_of(expr, ')')),
-                    '{': lambda x: PartialCall(e, _list_of(expr, '}'))}) 
+
+    def call(self):
+        e = self.member_get()
+        while self.maybe('(', '{', stop_on_lf=True):
+            e = self.expect({
+                    '(': lambda x: Call(e, self._list_of(self.expr, ')')),
+                    '{': lambda x: PartialCall(e, self._list_of(self.expr, '}'))}) 
         return e
 
-    def member_get():
-        e = item_slice()
-        while tokens.next_if('.'):
-            member = tokens.next('IDENTIFIER')
+    def member_get(self):
+        e = self.item_slice()
+        while self.next_if('.'):
+            member = self.next('IDENTIFIER')
             e = MemberGet(e, member.image)
         return e
         
-    def item_slice():
-        e = primary()
+    def item_slice(self):
+        e = self.primary()
 
-        while tokens.next_if('[', stop_on_lf=True):
+        while self.next_if('[', stop_on_lf=True):
             v1, v2, v3 = Literal(None), Literal(None), Literal(None)
 
-            if not tokens.maybe(':'):
-                v1 = expr()
+            if not self.maybe(':'):
+                v1 = self.expr()
 
-            if not tokens.maybe(']'):
-                if tokens.next(':') and not tokens.maybe(':', ']'):
-                    v2 = expr()
-                if tokens.next_if(':') and not tokens.maybe(']'):
-                    v3 = expr()
+            if not self.maybe(']'):
+                if self.next(':') and not self.maybe(':', ']'):
+                    v2 = self.expr()
+                if self.next_if(':') and not self.maybe(']'):
+                    v3 = self.expr()
                 v1 = Slice(v1, v2, v3)
 
-            tokens.next(']')
+            self.next(']')
             e = ItemGet(e, v1)
 
         return e
 
-    def _key_value():
-        key = expr()
-        tokens.next(':')
-        value = expr()
+    def _key_value(self):
+        key = self.expr()
+        self.next(':')
+        value = self.expr()
         return (key, value)
 
-    def primary():
-        return tokens.expect({
+    def primary(self):
+        return self.expect({
             'INTEGER': lambda x: Literal(int(x.image)),
             'FLOAT': lambda x: Literal(float(x.image)),
             'STRING': lambda x: Literal(x.image[1:-1].decode('string-escape')),
             'IDENTIFIER': lambda x: VariableGet(x.image),
-            '(': lambda x: block(')'),
-            '[': lambda x: ListLiteral(_list_of(expr, ']')),
-            '{': lambda x: DictLiteral(_list_of(_key_value, '}')),            
+            '(': lambda x: self.block(')'),
+            '[': lambda x: ListLiteral(self._list_of(self.expr, ']')),
+            '{': lambda x: DictLiteral(self._list_of(self._key_value, '}')),            
         }) 
-        
-    return block('EOF')
-    
-if __name__ == '__main__':
-    import sys, __builtin__
-    
-    def read(prompt): 
-        return raw_input(prompt)
-
-    def write(*messages):
-        print(*messages)
-    
-    with open(sys.argv[1]) as f:
-        data = f.read()
-        scope = Scope(__builtin__.__dict__)
-        scope.put('read', read)
-        scope.put('write', write)
-        parse(data)(scope)  
 
