@@ -76,24 +76,24 @@ class CodeGenerator:
     def emit_Literal(self, e):
         self.emit_op('LOAD_CONST', self.const(e.value))
 
-    def emit_VariableGet(self, e):
+    def emit_GetVariable(self, e):
         idx = self.varname(e.name)
         if idx != None:
             self.emit_op('LOAD_FAST', idx)        
         else:
             self.emit_op('LOAD_NAME', self.name(e.name))
 
-    def emit_VariableSet(self, e):
+    def emit_SetVariable(self, e):
         self.emit(e.expr)
         self.emit_op('DUP_TOP')
         self.emit_op('STORE_FAST', self.varname(e.name, write=True))        
 
-    def emit_ItemGet(self, e):
+    def emit_GetSubscript(self, e):
         self.emit(e.target)
         self.emit(e.index)
         self.emit_op('BINARY_SUBSCR')
 
-    def emit_ItemSet(self, e):
+    def emit_SetSubscript(self, e):
         self.emit(e.expr)
         self.emit_op('DUP_TOP')
         self.emit(e.target)
@@ -160,11 +160,11 @@ class CodeGenerator:
         self.emit_op('LOAD_CONST', self.const(body_code.assemble()))
         self.emit_op('MAKE_FUNCTION', 0)
 
-    def emit_MemberGet(self, e):
+    def emit_GetAttribute(self, e):
         self.emit(e.target)
         self.emit_op('LOAD_ATTR', self.name(e.name))
 
-    def emit_MemberSet(self, e):
+    def emit_SetAttribute(self, e):
         self.emit(e.value)
         self.emit(e.target)
         self.emit_op('STORE_ATTR', self.name(e.name))

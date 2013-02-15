@@ -116,21 +116,21 @@ class Parser(TokenStream):
         return begin
 
     def call(self):
-        e = self.member_get()
+        e = self.get_attribute()
         while self.maybe('(', '{', stop_on_lf=True):
             e = self.expect({
                     '(': lambda x: Call(e, self._list_of(self.expr, ')')),
                     '{': lambda x: PartialCall(e, self._list_of(self.expr, '}'))}) 
         return e
 
-    def member_get(self):
-        e = self.item_slice()
+    def get_attribute(self):
+        e = self.get_subscript()
         while self.next_if('.'):
             member = self.next('IDENTIFIER')
-            e = MemberGet(e, member.image)
+            e = GetAttribute(e, member.image)
         return e
         
-    def item_slice(self):
+    def get_subscript(self):
         e = self.primary()
 
         while self.next_if('[', stop_on_lf=True):
@@ -147,7 +147,7 @@ class Parser(TokenStream):
                 v1 = Slice(v1, v2, v3)
 
             self.next(']')
-            e = ItemGet(e, v1)
+            e = GetSubscript(e, v1)
 
         return e
 
@@ -162,7 +162,7 @@ class Parser(TokenStream):
             'INTEGER': lambda x: Literal(int(x.image)),
             'FLOAT': lambda x: Literal(float(x.image)),
             'STRING': lambda x: Literal(x.image[1:-1].decode('string-escape')),
-            'IDENTIFIER': lambda x: VariableGet(x.image),
+            'IDENTIFIER': lambda x: GetVariable(x.image),
             '(': lambda x: self.block(')'),
             '[': lambda x: ListLiteral(self._list_of(self.expr, ']')),
             '{': lambda x: DictLiteral(self._list_of(self._key_value, '}')),            

@@ -22,41 +22,41 @@ class RangeLiteral(object):
         self.end = end
         self.step = step
 
-class VariableGet(object):
+class GetVariable(object):
     def __init__(self, name):
         self.name = name
         
     def to_assignment(self, expr):
-        return VariableSet(self.name, expr)
+        return SetVariable(self.name, expr)
 
-class VariableSet(object):
+class SetVariable(object):
     def __init__(self, name, expr):
         self.name = name
         self.expr = expr
 
-class MemberGet(object):
+class GetAttribute(object):
     def __init__(self, target, name):
         self.target = target
         self.name = name
 
     def to_assignment(self, expr):
-        return MemberSet(self.target, self.name, expr)
+        return SetAttribute(self.target, self.name, expr)
 
-class MemberSet(object):
+class SetAttribute(object):
     def __init__(self, target, name, value):
         self.target = target
         self.name = name
         self.value = value
     
-class ItemGet(object):
+class GetSubscript(object):
     def __init__(self, target, index):
         self.target = target
         self.index = index
 
     def to_assignment(self, expr):
-        return ItemSet(self.target, self.index, expr)
+        return SetSubscript(self.target, self.index, expr)
 
-class ItemSet(object):
+class SetSubscript(object):
     def __init__(self, target, index, expr):
         self.target = target
         self.index = index
