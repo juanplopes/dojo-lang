@@ -180,9 +180,9 @@ class CodeGenerator:
         elif e.items:
             for item in e.items:
                 self.emit_op('IMPORT_FROM', self.name(item))
-                self.emit_op('STORE_GLOBAL', self.name(item))
+                self.emit_op('STORE_FAST', self.varname(item, write=True))
         else:
-            self.emit_op('STORE_GLOBAL', self.name(e.name))
+            self.emit_op('STORE_FAST', self.varname(e.name, write=True))
 
     def emit_Block(self, e):
         if len(e.exprs):
