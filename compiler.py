@@ -10,8 +10,8 @@ class DojoCompiled(object):
     def __call__(self, globals = None, locals = None):
         return eval(self.code, globals, locals)
 
-def dojo_compile(source):
-    code = CodeGenerator()
+def dojo_compile(source, filename='<string>'):
+    code = CodeGenerator(filename=filename)
     code.emit(Parser(source).program())        
     return DojoCompiled(code.assemble())
     
@@ -26,5 +26,6 @@ if __name__ == '__main__':
     
     with open(sys.argv[1]) as f:
         data = f.read()
-        dojo_compile(data)()
+        compiled = dojo_compile(data, filename=sys.argv[1])
+        compiled()
 

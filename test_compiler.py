@@ -126,6 +126,12 @@ class ParserTestCase(unittest.TestCase):
             test(2, 100)
         """)())
 
+    def test_define_method_with_closure_and_use_later(self):
+        self.assertEquals(1024, dojo_compile('pow=@x:@y:x**y; pow(2)(10)')())
+
+    def test_define_method_and_use_later_accessing_outside_variables(self):
+        self.assertEquals(1024, dojo_compile('z=10; pow=@x:x**z; pow(2)')())
+
     def test_equality_operator(self):
         self.assertEquals(True, dojo_compile('a=2; b=2; a==b')())
         self.assertEquals(False, dojo_compile('a=2; b=3; a==b')())
@@ -184,7 +190,6 @@ class ParserTestCase(unittest.TestCase):
         self.assertEquals({}, dojo_compile('{}')())
         self.assertEquals({'abc':123, 456:'qwe'}, dojo_compile('{"abc":123, 456:"qwe"}')())
 
-
     def test_range_literal(self):
         obj = dojo_compile('5..8')()
         it = iter(obj)
@@ -224,6 +229,9 @@ class ParserTestCase(unittest.TestCase):
     def test_import_module_star(self):
         math = __import__('math')
         self.assertEquals([math, math.sqrt, math.cos, math.log], dojo_compile('[import math(*), sqrt, cos, log]')())
+
+    def test_import_then_call(self):
+        self.assertEquals(2.0, dojo_compile('import math(sqrt); test=@x:sqrt(x); test(4)')())
 
     def test_import_module_ambiguity(self):
         scope = {'sqrt':3}
@@ -287,13 +295,6 @@ class ParserTestCase(unittest.TestCase):
 
     def test_slice_set(self):
         self.assertEquals([1,2,5,6], dojo_compile('a=[1,2,3,4]; a[2:]=[5,6]; a')())
-
-
-    '''
-    def test_define_method_with_closure_and_use_later(self):
-        self.assertEquals(1024, dojo_compile('pow=@x:@y:x**y, pow(2)(10)')())
-
-    '''
 
 class ParserErrorTestCase(unittest.TestCase):
     def test_exception_contains_line_number_on_different_line(self):

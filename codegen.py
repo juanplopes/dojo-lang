@@ -86,11 +86,7 @@ class CodeGenerator:
     def emit_VariableSet(self, e):
         self.emit(e.expr)
         self.emit_op('DUP_TOP')
-        idx = self.varname(e.name)
-        if idx:
-            self.emit_op('STORE_FAST', idx)        
-        else:
-            self.emit_op('STORE_NAME', self.name(e.name))
+        self.emit_op('STORE_FAST', self.varname(e.name, write=True))        
 
     def emit_ItemGet(self, e):
         self.emit(e.target)
@@ -154,12 +150,12 @@ class CodeGenerator:
 
     def emit_BooleanOp(self, e):
         self.emit(e.lhs)
-        critical = self.emit_op('NOP', 0)
+        patch = self.patch_point()
         self.emit(e.rhs)
-        self.patch_op(critical, BOOLEAN_OPS[e.op], len(self.code))
+        self.patch_op(patch, BOOLEAN_OPS[e.op], len(self.code))
 
     def emit_Function(self, e):
-        body_code = CodeGenerator(argnames = e.args)
+        body_code = CodeGenerator(argnames = e.args, filename=self.filename)
         body_code.emit(e.body)
         self.emit_op('LOAD_CONST', self.const(body_code.assemble()))
         self.emit_op('MAKE_FUNCTION', 0)
@@ -184,9 +180,9 @@ class CodeGenerator:
         elif e.items:
             for item in e.items:
                 self.emit_op('IMPORT_FROM', self.name(item))
-                self.emit_op('STORE_NAME', self.name(item))
+                self.emit_op('STORE_GLOBAL', self.name(item))
         else:
-            self.emit_op('STORE_NAME', self.name(e.name))
+            self.emit_op('STORE_GLOBAL', self.name(e.name))
 
     def emit_Block(self, e):
         if len(e.exprs):
@@ -199,18 +195,22 @@ class CodeGenerator:
             self.emit_op('LOAD_CONST', self.const(None))
 
     def emit_op(self, op, arg1=None, arg2=None):
-        begin = len(self.code)
         self.code.append(opcode.opmap[op])
         if arg1 != None:
             self.code.append(arg1&0xFF)
             self.code.append((arg2 if arg2 else arg1>>8)&0xFF)
-        return begin
 
-    def patch_op(self, begin, op, arg1=None, arg2=None):
-        self.code[begin] = opcode.opmap[op]
-        if arg1 != None:
-            self.code[begin+1] = arg1&0xFF
-            self.code[begin+2] = (arg2 if arg2 else arg1>>8)&0xFF
+    def patch_point(self):
+        self.code += [0] * 6
+        return len(self.code)-6
+
+    def patch_op(self, begin, op, arg):
+        self.code[begin] = opcode.opmap['EXTENDED_ARG']
+        self.code[begin+1] = (arg>>16)&0xFF
+        self.code[begin+2] = (arg>>24)&0xFF
+        self.code[begin+3] = opcode.opmap[op]
+        self.code[begin+4] = (arg>>0)&0xFF
+        self.code[begin+5] = (arg>>8)&0xFF
 
     def make_new(self, m, value):
         if value not in m:
