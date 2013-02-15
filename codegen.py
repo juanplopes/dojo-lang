@@ -92,6 +92,24 @@ class CodeGenerator:
         else:
             self.emit_op('STORE_NAME', self.name(e.name))
 
+    def emit_ItemGet(self, e):
+        self.emit(e.target)
+        self.emit(e.index)
+        self.emit_op('BINARY_SUBSCR')
+
+    def emit_ItemSet(self, e):
+        self.emit(e.expr)
+        self.emit_op('DUP_TOP')
+        self.emit(e.target)
+        self.emit(e.index)
+        self.emit_op('STORE_SUBSCR')
+
+    def emit_Slice(self, e):
+        self.emit(e.start)
+        self.emit(e.end)
+        self.emit(e.step)
+        self.emit_op('BUILD_SLICE', 3)
+
     def emit_Return(self, e):
         self.emit(e.expr)
         self.emit_op('RETURN_VALUE')

@@ -268,29 +268,30 @@ class ParserTestCase(unittest.TestCase):
     def test_set_member(self):
         self.assertEquals(4, dojo_compile('import _ast(If); i = If(); i.lineno = 2; i.lineno*2')())
 
+    def test_item_access(self):
+        self.assertEquals(3, dojo_compile('a=[1,2,3,4]; a[2]')())
+
+    def test_item_slice(self):
+        self.assertEquals([2,4], dojo_compile('a=[1,2,3,4]; a[1:4:2]')())
+        self.assertEquals([4,3,2], dojo_compile('a=[1,2,3,4]; a[:0:-1]')())
+        self.assertEquals([1,2,3,4], dojo_compile('a=[1,2,3,4]; a[::]')())
+        self.assertEquals([2,4], dojo_compile('a=[1,2,3,4]; a[1::2]')())
+        self.assertEquals([1,3], dojo_compile('a=[1,2,3,4]; a[::2]')())
+        self.assertEquals([2], dojo_compile('a=[1,2,3,4]; a[1:3:2]')())
+        self.assertEquals([3,4], dojo_compile('a=[1,2,3,4]; a[2:]')())
+        self.assertEquals([1,2], dojo_compile('a=[1,2,3,4]; a[:2]')())
+        self.assertEquals([4,3,2,1], dojo_compile('a=[1,2,3,4]; a[::-1]')())
+
+    def test_item_access_set(self):
+        self.assertEquals([1,2,42,4], dojo_compile('a=[1,2,3,4]; a[2]=42; a')())
+
+    def test_slice_set(self):
+        self.assertEquals([1,2,5,6], dojo_compile('a=[1,2,3,4]; a[2:]=[5,6]; a')())
+
+
     '''
     def test_define_method_with_closure_and_use_later(self):
         self.assertEquals(1024, dojo_compile('pow=@x:@y:x**y, pow(2)(10)')())
-
-    def test_item_access(self):
-        self.assertEquals(3, dojo_compile('a=[1,2,3,4], a[2]')())
-
-    def test_item_slice(self):
-        self.assertEquals([2,4], dojo_compile('a=[1,2,3,4], a[1:4:2]')())
-        self.assertEquals([4,3,2], dojo_compile('a=[1,2,3,4], a[:0:-1]')())
-        self.assertEquals([1,2,3,4], dojo_compile('a=[1,2,3,4], a[::]')())
-        self.assertEquals([2,4], dojo_compile('a=[1,2,3,4], a[1::2]')())
-        self.assertEquals([1,3], dojo_compile('a=[1,2,3,4], a[::2]')())
-        self.assertEquals([2], dojo_compile('a=[1,2,3,4], a[1:3:2]')())
-        self.assertEquals([3,4], dojo_compile('a=[1,2,3,4], a[2:]')())
-        self.assertEquals([1,2], dojo_compile('a=[1,2,3,4], a[:2]')())
-        self.assertEquals([4,3,2,1], dojo_compile('a=[1,2,3,4], a[::-1]')())
-
-    def test_item_access_set(self):
-        self.assertEquals([1,2,42,4], dojo_compile('a=[1,2,3,4], a[2]=42, a')())
-
-    def test_slice_set(self):
-        self.assertEquals([1,2,5,6], dojo_compile('a=[1,2,3,4], a[2:]=[5,6], a')())
 
     '''
 

@@ -53,17 +53,14 @@ class ItemGet(object):
         self.target = target
         self.index = index
 
-    def __call__(self, scope):
-        return self.target(scope).__getitem__(self.index(scope))
+    def to_assignment(self, expr):
+        return ItemSet(self.target, self.index, expr)
 
 class ItemSet(object):
     def __init__(self, target, index, expr):
         self.target = target
         self.index = index
         self.expr = expr
-
-    def __call__(self, scope):
-        return self.target(scope).__setitem__(self.index(scope), self.expr(scope))
 
 class Slice(object):
     def __init__(self, start, end, step):
