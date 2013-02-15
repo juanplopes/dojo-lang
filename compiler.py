@@ -20,7 +20,7 @@ class DojoCallable(object):
         return eval(self.code, globals, locals)
     
 if __name__ == '__main__':
-    import sys, __builtin__
+    import sys
     
     def read(prompt): 
         return raw_input(prompt)
