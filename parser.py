@@ -19,12 +19,14 @@ class Parser(TokenStream):
         super(Parser, self).__init__(SCANNER, source)
 
     def program(self):
-        return self.block('EOF')
+        ctx = LexicalContext()
+        body = self.block(ctx, 'EOF')
+        return Program(body, ctx.varnames('exported'), ctx.varnames('closure'))
 
-    def block(self, until):
+    def block(self, ctx, until):
         exprs = []
         while self.ignore(';') and not self.next_if(until):
-            exprs.append(self.expr())
+            exprs.append(self.expr(ctx))
             self.expect_lf_or(';', until)
         return Block(exprs)
         
@@ -54,69 +56,77 @@ class Parser(TokenStream):
         self.next(until)
         return args 
 
-    def expr(self):
-        return self.if_expression()
+    def expr(self, ctx):
+        return self.if_expression(ctx)
 
-    def if_expression(self):
+    def if_expression(self, ctx):
         if self.next_if('if'):
-            return self.if_test_and_bodies()
-        return self.yield_expression()
+            return self.if_test_and_bodies(ctx)
+        return self.yield_expression(ctx)
     
-    def if_test_and_bodies(self):
-        test = self.expr()
+    def if_test_and_bodies(self, ctx):
+        test = self.expr(ctx)
         self.next(':')
-        then_body = self.expr()
+        then_body = self.expr(ctx)
         
         if self.next_if('else') and self.next(':'):
-            else_body = self.expr()
+            else_body = self.expr(ctx)
         elif self.next_if('elif'):
-            else_body = self.if_test_and_bodies()
+            else_body = self.if_test_and_bodies(ctx)
         else:
             else_body = Block()
         
         return If(test, then_body, else_body)
 
-    def yield_expression(self):
+    def yield_expression(self, ctx):
         if self.next_if('yield'):
-            return Yield(self.expr())
-        return self.return_expression()
+            return Yield(self.expr(ctx))
+        return self.return_expression(ctx)
             
-    def return_expression(self):
+    def return_expression(self, ctx):
         if self.next_if('return'):
-            return Return(self.expr())
-        return self.assignment()
+            return Return(self.expr(ctx))
+        return self.assignment(ctx)
 
-    def assignment(self):
-        to = self.import_expression()
+    def assignment(self, ctx):
+        to = self.import_expression(ctx)
         if hasattr(to, 'to_assignment') and self.next_if('='):
-            value = self.expr()
+            value = self.expr(ctx)
             return to.to_assignment(value)
         return to
 
-    def import_expression(self):
+    def import_expression(self, ctx):
         if self.next_if('import'):
             name = self.next('IDENTIFIER').image
             items = []        
             if self.next_if('(', stop_on_lf=True):
-                items = self._list_of(lambda: self.next('IDENTIFIER', '*').image, ')')
+                items = self._list_of(lambda: self.next('IDENTIFIER').image, ')')
             return Import(name, items)
-        return self.function()
+        return self.function(ctx)
 
-    def function(self):
+    def function(self, ctx):
         if self.next_if('@'):
             args = self._list_of(lambda: self.next('IDENTIFIER').image, ':')
-            body = self.expr()
-            return Function(None, args, body)
-
+            return self.function_body(ctx, None, args)
+            
         if self.next_if('def'):
             name = self.next('IDENTIFIER').image
+            var = ctx.ensure(name, 'local')
+            
             self.next('(')
             args = self._list_of(lambda: self.next('IDENTIFIER').image, ')')
             self.next(':')
-            body = self.expr()
-            return Function(name, args, body)
+            return SetVariable(var, self.function_body(ctx, name, args))
             
-        return self.operators()
+            
+        return self.operators(ctx)
+
+    def function_body(self, ctx, name, args):
+        body_ctx = ctx.push(args)
+        body = self.expr(body_ctx)
+        return Function(name, args, body, 
+                        body_ctx.varnames('exported'), 
+                        body_ctx.varnames('closure'))
 
     OPS = [
         (_raw, {'|>':PipeForward}), 
@@ -136,49 +146,49 @@ class Parser(TokenStream):
         (_unary, '-', '+', '~'),
     ]
 
-    def operators(self):
-        current = self.range_literal
+    def operators(self, ctx):
+        current = partial(self.range_literal, ctx)
         for op in reversed(Parser.OPS):
             current = partial(op[0], self, current, *op[1:])
         return current()
 
-    def range_literal(self):
-        begin = self.call()
+    def range_literal(self, ctx):
+        begin = self.call(ctx)
         if self.next_if('..'):
-            end = self.call()
-            step = self.call() if self.next_if(':') else None
+            end = self.call(ctx)
+            step = self.call(ctx) if self.next_if(':') else None
             return RangeLiteral(begin, end, step)
         return begin
 
-    def call(self):
-        e = self.get_attribute()
+    def call(self, ctx):
+        e = self.get_attribute(ctx)
         while self.maybe('(', '{', stop_on_lf=True):
             e = self.expect({
-                    '(': lambda x: Call(e, self._list_of(self.expr, ')')),
-                    '{': lambda x: PartialCall(e, self._list_of(self.expr, '}'))}) 
+                    '(': lambda x: Call(e, self._list_of(lambda: self.expr(ctx), ')')),
+                    '{': lambda x: PartialCall(e, self._list_of(lambda: self.expr(ctx), '}'))}) 
         return e
 
-    def get_attribute(self):
-        e = self.get_subscript()
+    def get_attribute(self, ctx):
+        e = self.get_subscript(ctx)
         while self.next_if('.'):
             member = self.next('IDENTIFIER')
             e = GetAttribute(e, member.image)
         return e
         
-    def get_subscript(self):
-        e = self.primary()
+    def get_subscript(self, ctx):
+        e = self.primary(ctx)
 
         while self.next_if('[', stop_on_lf=True):
             v1, v2, v3 = Literal(None), Literal(None), Literal(None)
 
             if not self.maybe(':'):
-                v1 = self.expr()
+                v1 = self.expr(ctx)
 
             if not self.maybe(']'):
                 if self.next(':') and not self.maybe(':', ']'):
-                    v2 = self.expr()
+                    v2 = self.expr(ctx)
                 if self.next_if(':') and not self.maybe(']'):
-                    v3 = self.expr()
+                    v3 = self.expr(ctx)
                 v1 = Slice(v1, v2, v3)
 
             self.next(']')
@@ -186,20 +196,20 @@ class Parser(TokenStream):
 
         return e
 
-    def _key_value(self):
-        key = self.expr()
+    def _key_value(self, ctx):
+        key = self.expr(ctx)
         self.next(':')
-        value = self.expr()
+        value = self.expr(ctx)
         return (key, value)
 
-    def primary(self):
+    def primary(self, ctx):
         return self.expect({
             'INTEGER': lambda x: Literal(int(x.image)),
             'FLOAT': lambda x: Literal(float(x.image)),
             'STRING': lambda x: Literal(x.image[1:-1].decode('string-escape')),
-            'IDENTIFIER': lambda x: GetVariable(x.image),
-            '(': lambda x: self.block(')'),
-            '[': lambda x: ListLiteral(self._list_of(self.expr, ']')),
-            '{': lambda x: DictLiteral(self._list_of(self._key_value, '}')),            
+            'IDENTIFIER': lambda x: GetVariable(ctx.request(x.image)),
+            '(': lambda x: self.block(ctx, ')'),
+            '[': lambda x: ListLiteral(self._list_of(lambda: self.expr(ctx), ']')),
+            '{': lambda x: DictLiteral(self._list_of(lambda: self._key_value(ctx), '}')),            
         }) 
 

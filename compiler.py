@@ -1,16 +1,15 @@
 # -*- coding:utf8 -*-
 from __future__ import print_function
 from parser import Parser
-from codegen import CodeGenerator
+from codegen import dojo_emit
 
 def dojo_compile(source, filename='<string>'):
     ast = Parser(source).program()
 
     #Here should come the compiler optimizations. Should.
 
-    code = CodeGenerator(filename=filename)
-    code.emit(ast)        
-    return DojoCallable(code.assemble())
+    code = dojo_emit(ast, filename)
+    return DojoCallable(code)
 
 class DojoCallable(object):
     def __init__(self, code):
@@ -29,5 +28,7 @@ if __name__ == '__main__':
         print(*messages)
     
     with open(sys.argv[1]) as f:
-        dojo_compile(f.read(), filename=sys.argv[1])()
+        compiled = dojo_compile(f.read(), filename=sys.argv[1])
+        compiled()
+        
 

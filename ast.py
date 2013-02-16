@@ -1,5 +1,63 @@
 # -*- coding:utf8 -*-
 
+class LexicalContext(object):
+    def __init__(self, parent=None):
+        self.parent = parent
+        self.variables = {}
+
+    def ensure(self, name, scope):
+        var = Variable(self, name, scope)
+        self.variables[name] = var
+        return var
+      
+    def request(self, name, level=0):
+        if name in self.variables:
+            var = self.variables[name]
+            if var.scope =='local' and level > 0: 
+                var.scope = 'exported'
+            return var
+
+        if self.parent:
+            var = self.parent.request(name, level+1)
+            if var.scope in ('exported', 'closure'):
+                return self.ensure(var.name, 'closure')
+            else:
+                return Variable(self, var.name, var.scope)
+
+        return Variable(self, name, 'global')
+
+    def assign(self, name):
+        var = self.request(name)
+        if var.scope == 'global':
+            var = Variable(self, name, 'local')
+            self.variables[name] = var
+            return var
+        return var
+
+    def push(self, args):
+        ctx = LexicalContext(self)
+        for arg in args:
+            ctx.ensure(arg, 'local')
+        return ctx
+
+    def varnames(self, of_type):
+        return [var.name for var in self.variables.values() if var.scope == of_type]
+
+class Variable(object):
+    def __init__(self, context, name, scope):
+        self.context = context
+        self.name = name
+        self.scope = scope
+
+    def to_assignment(self):
+        return self.context.assign(self.name)
+
+class Program(object):
+    def __init__(self, body, cell, free):
+        self.body = body
+        self.cell = cell
+        self.free = free
+
 class Block(object):
     def __init__(self, exprs=[]):
         self.exprs = exprs
@@ -23,15 +81,15 @@ class RangeLiteral(object):
         self.step = step
 
 class GetVariable(object):
-    def __init__(self, name):
-        self.name = name
-        
+    def __init__(self, var):
+        self.var = var
+                
     def to_assignment(self, expr):
-        return SetVariable(self.name, expr)
+        return SetVariable(self.var.to_assignment(), expr)
 
 class SetVariable(object):
-    def __init__(self, name, expr):
-        self.name = name
+    def __init__(self, var, expr):
+        self.var = var
         self.expr = expr
 
 class GetAttribute(object):
@@ -126,10 +184,12 @@ class If(object):
         self.else_body = else_body
 
 class Function(object):
-    def __init__(self, name, args, body):
+    def __init__(self, name, args, body, cell, free):
         self.name = name
         self.args = args
         self.body = body
+        self.cell = cell
+        self.free = free
 
 class Import(object):
     def __init__(self, name, items):

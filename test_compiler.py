@@ -4,7 +4,7 @@ import unittest
 from compiler import dojo_compile
 from scanner import InvalidSyntax, UnexpectedToken
 
-class ParserTestCase(unittest.TestCase):
+class CompilerTestCase(unittest.TestCase):
     def test_constant(self):
         self.assertEquals(42, dojo_compile('42')())
         
@@ -240,10 +240,6 @@ class ParserTestCase(unittest.TestCase):
         math = __import__('math')
         self.assertEquals([math, math.sqrt, math.cos, math.log], dojo_compile('[import math(sqrt, cos, log), sqrt, cos, log]')())
 
-    def test_import_module_star(self):
-        math = __import__('math')
-        self.assertEquals([math, math.sqrt, math.cos, math.log], dojo_compile('[import math(*), sqrt, cos, log]')())
-
     def test_import_then_call(self):
         self.assertEquals(2.0, dojo_compile('import math(sqrt); test=@x:sqrt(x); test(4)')())
 
@@ -368,7 +364,7 @@ class ParserTestCase(unittest.TestCase):
     def test_slice_set(self):
         self.assertEquals([1,2,5,6], dojo_compile('a=[1,2,3,4]; a[2:]=[5,6]; a')())
 
-class ParserErrorTestCase(unittest.TestCase):
+class CompilerErrorTestCase(unittest.TestCase):
     def test_exception_contains_line_number_on_different_line(self):
         with self.assertRaises(UnexpectedToken) as context:
             dojo_compile('2+2\n2+3\n  )')
@@ -398,4 +394,5 @@ class ParserErrorTestCase(unittest.TestCase):
         self.assertIn('line 1 column 1', context.exception.message)
 
 if __name__ == '__main__':
-    unittest.main()
+    unittest.main(verbosity=2)
+    #unittest.TextTestRunner(verbosity=2).run(unittest.TestLoader().loadTestsFromTestCase(ParserTestCase))
