@@ -71,6 +71,10 @@ class Slice(object):
 class Return(object):
     def __init__(self, expr):
         self.expr = expr
+   
+class Yield(object):
+    def __init__(self, expr):
+        self.expr = expr
     
 class Call(object):
     def __init__(self, method, args):

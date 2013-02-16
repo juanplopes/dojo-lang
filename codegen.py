@@ -45,6 +45,7 @@ class CodeGenerator:
         self.codename = codename
         self.lineno = lineno
         self.root = root
+        self.flags = 0
 
     def emit(self, e):
         emitter = getattr(self, 'emit_' + type(e).__name__)
@@ -120,6 +121,11 @@ class CodeGenerator:
         self.emit(e.expr)
         self.emit_op('RETURN_VALUE')
 
+    def emit_Yield(self, e):
+        self.emit(e.expr)
+        self.emit_op('YIELD_VALUE')
+        self.flags |= 0x0020 #CO_GENERATOR
+        
     def emit_PartialCall(self, e):
         self.emit_op('LOAD_CONST', self.const(functools.partial))
         self.emit(e.method)
@@ -251,7 +257,7 @@ class CodeGenerator:
         return types.CodeType(self.argcount, 
                         len(self.varnames), 
                         1000, 
-                        0, 
+                        self.flags, 
                         code, 
                         consts, 
                         names, 

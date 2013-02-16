@@ -102,6 +102,9 @@ class ParserTestCase(unittest.TestCase):
     def test_define_method_and_use_later(self):
         self.assertEquals(1024, dojo_compile('pow2=@x,y:x**y; pow2(2, 10)')())
 
+    def test_define_generator_method(self):
+        self.assertEquals([2, 10], dojo_compile('def pow2(x,y):(yield x; yield y); list(pow2(2, 10))')())
+
     def test_define_named_method_and_use_later(self):
         self.assertEquals(1024, dojo_compile('def pow2(x,y):x**y; pow2(2, 10)')())
 

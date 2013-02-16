@@ -7,7 +7,7 @@ SCANNER = Scanner('+', '-', '*', '/', '**', '%', '(', ')', '[', ']', '{', '}',
                   '==', '!=', ',', '=', '@', ';', ':', '..', '|>', '=>', '.', 
                   '<', '<=', '>', '>=', '~', '<<', '>>', '&', '|', '^',
                   'return', 'in', 'not in', 'if', 'else', 'elif', 'and', 'or', 
-                  'not', 'import', 'def',
+                  'not', 'import', 'def', 'yield',
                   INTEGER = r'[0-9]+', 
                   FLOAT = r'[0-9]*\.[0-9]+', 
                   IDENTIFIER = r'[_a-zA-Z][_a-zA-Z0-9]*',
@@ -59,7 +59,7 @@ class Parser(TokenStream):
     def if_expression(self):
         if self.next_if('if'):
             return self.if_test_and_bodies()
-        return self.return_expression()
+        return self.yield_expression()
     
     def if_test_and_bodies(self):
         test = self.expr()
@@ -74,7 +74,11 @@ class Parser(TokenStream):
             else_body = Block()
         
         return If(test, then_body, else_body)
-        
+
+    def yield_expression(self):
+        if self.next_if('yield'):
+            return Yield(self.expr())
+        return self.return_expression()
             
     def return_expression(self):
         if self.next_if('return'):
