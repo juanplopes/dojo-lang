@@ -27,6 +27,8 @@ BOOLEAN_OPS = {
     'or': 'JUMP_IF_TRUE_OR_POP',
 }
 
+CO_GENERATOR = 0x0020
+
 def compose(f, g, unpack=False):
     def newfunc(*args, **kwargs):
         return g(f(*args, **kwargs))
@@ -124,7 +126,7 @@ class CodeGenerator:
     def emit_Yield(self, e):
         self.emit(e.expr)
         self.emit_op('YIELD_VALUE')
-        self.flags |= 0x0020 #CO_GENERATOR
+        self.flags |= CO_GENERATOR
         
     def emit_PartialCall(self, e):
         self.emit_op('LOAD_CONST', self.const(functools.partial))
