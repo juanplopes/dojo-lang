@@ -4,9 +4,10 @@ from scanner import *
 from functools import partial
     
 SCANNER = Scanner('+', '-', '*', '/', '**', '%', '(', ')', '[', ']', '{', '}',
-                  'return', '==', '!=', ',', '=', '@', ';', ':', '..',
-                  '<', '<=', '>', '>=', '~', 'and', 'or', 'not', 'import',
-                  '<<', '>>', '&', '|', '^', '|>', '=>', 'in', 'not in', '.',
+                  '==', '!=', ',', '=', '@', ';', ':', '..', '|>', '=>', '.', 
+                  '<', '<=', '>', '>=', '~', '<<', '>>', '&', '|', '^',
+                  'return', 'in', 'not in', 'if', 'else', 'elif', 'and', 'or', 
+                  'not', 'import', 'def',
                   INTEGER = r'[0-9]+', 
                   FLOAT = r'[0-9]*\.[0-9]+', 
                   IDENTIFIER = r'[_a-zA-Z][_a-zA-Z0-9]*',
@@ -53,8 +54,28 @@ class Parser(TokenStream):
         return args 
 
     def expr(self):
-        return self.return_expression()
+        return self.if_expression()
 
+    def if_expression(self):
+        if self.next_if('if'):
+            return self.if_test_and_bodies()
+        return self.return_expression()
+    
+    def if_test_and_bodies(self):
+        test = self.expr()
+        self.next(':')
+        then_body = self.expr()
+        
+        if self.next_if('else') and self.next(':'):
+            else_body = self.expr()
+        elif self.next_if('elif'):
+            else_body = self.if_test_and_bodies()
+        else:
+            else_body = Block()
+        
+        return If(test, then_body, else_body)
+        
+            
     def return_expression(self):
         if self.next_if('return'):
             return Return(self.expr())
@@ -80,7 +101,16 @@ class Parser(TokenStream):
         if self.next_if('@'):
             args = self._list_of(lambda: self.next('IDENTIFIER').image, ':')
             body = self.expr()
-            return Function(args, body)
+            return Function(None, args, body)
+
+        if self.next_if('def'):
+            name = self.next('IDENTIFIER').image
+            self.next('(')
+            args = self._list_of(lambda: self.next('IDENTIFIER').image, ')')
+            self.next(':')
+            body = self.expr()
+            return Function(name, args, body)
+            
         return self.operators()
 
     OPS = [

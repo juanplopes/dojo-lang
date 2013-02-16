@@ -16,8 +16,8 @@ class DojoCallable(object):
     def __init__(self, code):
         self.code = code
         
-    def __call__(self, globals = None, locals = None):
-        return eval(self.code, globals, locals)
+    def __call__(self, globals = None):
+        return eval(self.code, globals, {})
     
 if __name__ == '__main__':
     import sys

@@ -1,7 +1,7 @@
 # -*- coding:utf8 -*-
 
 class Block(object):
-    def __init__(self, exprs):
+    def __init__(self, exprs=[]):
         self.exprs = exprs
 
 class Literal(object):
@@ -115,8 +115,15 @@ class UnaryOp(object):
         self.op = op
         self.expr = expr
 
+class If(object):
+    def __init__(self, test, then_body, else_body):
+        self.test = test
+        self.then_body = then_body
+        self.else_body = else_body
+
 class Function(object):
-    def __init__(self, args, body):
+    def __init__(self, name, args, body):
+        self.name = name
         self.args = args
         self.body = body
 

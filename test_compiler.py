@@ -59,11 +59,11 @@ class ParserTestCase(unittest.TestCase):
     def test_explicit_precedence(self):
         self.assertEquals(20, dojo_compile('(2+3)*4')())
 
-    def test_get_variable_from_locals_and_global(self):
-        self.assertEquals(7, dojo_compile('a+b')({'a':2,'b':3}, {'a':4}))
+    def test_get_variable_from_global(self):
+        self.assertEquals(5, dojo_compile('a+b')({'a':2,'b':3}))
 
     def test_local_variable_overrides_global(self):
-        self.assertEquals(9, dojo_compile('b=5;a+b')({'a':2,'b':3}, {'a':4}))
+        self.assertEquals(7, dojo_compile('b=5;a+b')({'a':2,'b':3}))
 
     def test_set_variable_is_also_expression(self):
         self.assertEquals(20, dojo_compile('a=(2+3)*4;c=b=a')())
@@ -71,6 +71,10 @@ class ParserTestCase(unittest.TestCase):
     def test_callable(self):
         scope = {'add':lambda x, y:x+y}
         self.assertEquals(14, dojo_compile('2*add(5, 2)')(scope))
+
+    def test_null_callable_inside_block(self):
+        scope = {'add':lambda:2, 'abc':3}
+        self.assertEquals(2, dojo_compile('abc\n(add();add())')(scope))
 
     def test_double_callable(self):
         scope = {'add':lambda x:lambda y:x+y}
@@ -96,7 +100,10 @@ class ParserTestCase(unittest.TestCase):
             ,4+4)""")(scope))
 
     def test_define_method_and_use_later(self):
-        self.assertEquals(1024, dojo_compile('pow=@x,y:x**y; pow(2, 10)')())
+        self.assertEquals(1024, dojo_compile('pow2=@x,y:x**y; pow2(2, 10)')())
+
+    def test_define_named_method_and_use_later(self):
+        self.assertEquals(1024, dojo_compile('def pow2(x,y):x**y; pow2(2, 10)')())
 
     def test_define_multiline_functions(self):
         self.assertEquals(1024, dojo_compile("""
@@ -128,6 +135,10 @@ class ParserTestCase(unittest.TestCase):
 
     def test_define_method_with_closure_and_use_later(self):
         self.assertEquals(1024, dojo_compile('pow=@x:@y:x**y; pow(2)(10)')())
+
+    def test_recursive_method(self):
+        self.assertEquals(55, dojo_compile('def fib(n): n<=2 and 1 or fib(n-1)+ fib(n-2); fib(10)')())
+
 
     def test_define_method_and_use_later_accessing_outside_variables(self):
         self.assertEquals(1024, dojo_compile('z=10; pow=@x:x**z; pow(2)')())
@@ -251,6 +262,64 @@ class ParserTestCase(unittest.TestCase):
         
         self.assertEquals(True, dojo_compile('2+2==4 and print()')(scope))
         self.assertEquals(1, counter[0])
+
+    def test_if_else(self):
+        counter = [0]
+        def function(): 
+            counter[0]+=1
+            return 'abc'
+
+        scope = ({'print': function})
+        
+        self.assertEquals(None, dojo_compile('if 2+2==5: print()')(scope))
+        self.assertEquals(0, counter[0])
+        
+        self.assertEquals('abc', dojo_compile('if 2+2==4: print()')(scope))
+        self.assertEquals(1, counter[0])
+        
+        self.assertEquals('qwe', dojo_compile('if 2+2==5: print() else: "qwe"')(scope))
+        self.assertEquals(1, counter[0])
+        
+        self.assertEquals('abc', dojo_compile('if 2+2==4: print() else: "qwe"')(scope))
+        self.assertEquals(2, counter[0])
+
+    def test_if_else_blocks(self):
+        counter = [0]
+        def function(): 
+            counter[0]+=1
+            return 'abc'
+
+        scope = ({'print': function})
+        
+        self.assertEquals(None, dojo_compile('if 2+2==5: (print();print())')(scope))
+        self.assertEquals(0, counter[0])
+        
+        self.assertEquals('abc', dojo_compile('if 2+2==4: (print();print())')(scope))
+        self.assertEquals(2, counter[0])
+        
+        self.assertEquals('bbb', dojo_compile('if 2+2==5: (print();print()) else: ("qwe";"bbb")')(scope))
+        self.assertEquals(2, counter[0])
+        
+        self.assertEquals('abc', dojo_compile('if 2+2==4: (print();print()) else: ("qwe";"bbb")')(scope))
+        self.assertEquals(4, counter[0])
+
+    def test_if_elif_else_blocks(self):
+        counter = [0]
+        def function(): 
+            counter[0]+=1
+            return 'abc'
+
+        scope = ({'print': function})
+        
+        self.assertEquals('abc', dojo_compile('if 2+2==5: (print()) elif 2+2==4: (print(); print()) else: ()')(scope))
+        self.assertEquals(2, counter[0])
+
+        self.assertEquals(3, dojo_compile('if 2+2==5: (print()) elif 2+2==6: (print(); print()) else: 3')(scope))
+        self.assertEquals(2, counter[0])
+
+
+    def test_return_if_expression(self):
+        self.assertEquals(1, dojo_compile('return if 2+2==4: 1')())
 
     def test_or_operator(self):
         counter = [0]

@@ -35,13 +35,14 @@ def compose(f, g, unpack=False):
     return newfunc
 
 class CodeGenerator:
-    def __init__(self, filename='<string>', lineno=1, argnames=(), root=True):
+    def __init__(self, codename='<string>', filename='<string>', lineno=1, argnames=(), root=True):
         self.argcount = len(argnames)
         self.consts = {}
         self.names = {}
         self.varnames = {name:i for i,name in enumerate(argnames)}
         self.code = []
         self.filename = filename
+        self.codename = codename
         self.lineno = lineno
         self.root = root
 
@@ -100,6 +101,15 @@ class CodeGenerator:
         self.emit(e.index)
         self.emit_op('STORE_SUBSCR')
 
+    def emit_GetAttribute(self, e):
+        self.emit(e.target)
+        self.emit_op('LOAD_ATTR', self.name(e.name))
+
+    def emit_SetAttribute(self, e):
+        self.emit(e.value)
+        self.emit(e.target)
+        self.emit_op('STORE_ATTR', self.name(e.name))
+
     def emit_Slice(self, e):
         self.emit(e.start)
         self.emit(e.end)
@@ -155,19 +165,22 @@ class CodeGenerator:
         self.patch_op(patch, BOOLEAN_OPS[e.op], len(self.code))
 
     def emit_Function(self, e):
-        body_code = CodeGenerator(argnames = e.args, filename=self.filename)
+        body_code = CodeGenerator(codename=e.name, argnames = e.args, filename=self.filename)
         body_code.emit(e.body)
         self.emit_op('LOAD_CONST', self.const(body_code.assemble()))
         self.emit_op('MAKE_FUNCTION', 0)
+        if e.name:
+            self.emit_op('DUP_TOP')
+            self.emit_op('STORE_FAST', self.varname(e.name, write=True))
 
-    def emit_GetAttribute(self, e):
-        self.emit(e.target)
-        self.emit_op('LOAD_ATTR', self.name(e.name))
-
-    def emit_SetAttribute(self, e):
-        self.emit(e.value)
-        self.emit(e.target)
-        self.emit_op('STORE_ATTR', self.name(e.name))
+    def emit_If(self, e):
+        self.emit(e.test)
+        patch1 = self.patch_point()
+        self.emit(e.then_body)
+        patch2 = self.patch_point()
+        self.patch_op(patch1, 'POP_JUMP_IF_FALSE', len(self.code))
+        self.emit(e.else_body)
+        self.patch_op(patch2, 'JUMP_ABSOLUTE', len(self.code))
 
     def emit_Import(self, e):
         self.emit_op('LOAD_CONST', self.const(-1))
@@ -244,7 +257,7 @@ class CodeGenerator:
                         names, 
                         varnames, 
                         self.filename, 
-                        self.filename, 
+                        self.codename or '<anonymous>', 
                         self.lineno, 
                         '')
     
