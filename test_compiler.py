@@ -377,9 +377,12 @@ class ParserErrorTestCase(unittest.TestCase):
 
     def test_exception_contains_line_number_on_same_line(self):
         with self.assertRaises(UnexpectedToken) as context:
-            dojo_compile('2+2 2+3  )')
+            dojo_compile('2+2; 2+3  )')
 
-        self.assertIn('line 1 column 10', context.exception.message)
+        self.assertIn('line 1 column 11', context.exception.message)
+
+    def test_cant_have_two_expressions_on_same_line_without_semicolon(self):
+        self.assertRaises(UnexpectedToken, dojo_compile, '2+2 3+3')
 
     def test_callable_with_missing_comma(self):
         scope = ({'add':lambda x, y:x+y})

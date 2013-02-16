@@ -88,6 +88,11 @@ class TokenStream(object):
         if self.maybe(*allowed, **opts):
             return self.next(*allowed, **opts)
     
+    def expect_lf_or(self, *allowed, **opts):
+        token = self.peek(**opts)
+        if not token.lf and token.name not in allowed:
+            raise UnexpectedToken(token, ('NEWLINE',) + allowed)
+    
     def ignore(self, *allowed, **opts):
         self.at_least_one(*allowed, **opts)
         return True

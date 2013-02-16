@@ -25,6 +25,7 @@ class Parser(TokenStream):
         exprs = []
         while self.ignore(';') and not self.next_if(until):
             exprs.append(self.expr())
+            self.expect_lf_or(';', until)
         return Block(exprs)
         
     def _binary(self, higher, clazz, *ops):
