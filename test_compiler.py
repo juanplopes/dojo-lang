@@ -71,6 +71,10 @@ class CompilerTestCase(unittest.TestCase):
     def test_callable(self):
         scope = {'add':lambda x, y:x+y}
         self.assertEquals(14, dojo_compile('2*add(5, 2)')(scope))
+        
+    def test_with_varargs(self):
+        scope = {'add':lambda *x:x}
+        self.assertEquals((5,2), dojo_compile('add(5, 2)')(scope))
 
     def test_null_callable_inside_block(self):
         scope = {'add':lambda:2, 'abc':3}
@@ -99,8 +103,11 @@ class CompilerTestCase(unittest.TestCase):
             3+3
             ,4+4)""")(scope))
 
+    def test_define_method_without_slash(self):
+        self.assertEquals(1024, dojo_compile('pow10=x:x**10; pow10(2)')())
+
     def test_define_method_and_use_later(self):
-        self.assertEquals(1024, dojo_compile('pow2=@x,y:x**y; pow2(2, 10)')())
+        self.assertEquals(1024, dojo_compile('pow2=/x,y:x**y; pow2(2, 10)')())
 
     def test_define_generator_method(self):
         self.assertEquals([2, 10], dojo_compile('def pow2(x,y):(yield x; yield y); list(pow2(2, 10))')())
@@ -110,7 +117,7 @@ class CompilerTestCase(unittest.TestCase):
 
     def test_define_multiline_functions(self):
         self.assertEquals(1024, dojo_compile("""
-            test = @x,y:(
+            test = /x,y:(
                 a = y**.5
                 x**a
             )
@@ -119,7 +126,7 @@ class CompilerTestCase(unittest.TestCase):
 
     def test_define_multiline_functions_with_parenthesis_below(self):
         self.assertEquals(1024, dojo_compile("""
-            test = @x,y:
+            test = /x,y:
             (
                 a = y**.5
                 x**a
@@ -129,7 +136,7 @@ class CompilerTestCase(unittest.TestCase):
 
     def test_define_multiline_with_return_functions(self):
         self.assertEquals(1024, dojo_compile("""
-            test = @x,y:(
+            test = /x,y:(
                 a = y**.5
                 return x**a
             )
@@ -137,14 +144,14 @@ class CompilerTestCase(unittest.TestCase):
         """)())
 
     def test_define_method_with_closure_and_use_later(self):
-        self.assertEquals(1024, dojo_compile('pow=@x:@y:x**y; pow(2)(10)')())
+        self.assertEquals(1024, dojo_compile('pow=x:y:x**y; pow(2)(10)')())
 
     def test_recursive_method(self):
         self.assertEquals(55, dojo_compile('def fib(n): n<=2 and 1 or fib(n-1)+ fib(n-2); fib(10)')())
 
 
     def test_define_method_and_use_later_accessing_outside_variables(self):
-        self.assertEquals(1024, dojo_compile('z=10; pow=@x:x**z; pow(2)')())
+        self.assertEquals(1024, dojo_compile('z=10; pow=/x:x**z; pow(2)')())
 
     def test_equality_operator(self):
         self.assertEquals(True, dojo_compile('a=2; b=2; a==b')())
@@ -226,7 +233,7 @@ class CompilerTestCase(unittest.TestCase):
 
     def test_partial_apply(self):
         scope = {'filter':filter}
-        self.assertEquals(range(2, 20, 2), dojo_compile('1..20 |> filter{@x:x%2==0}')(scope))
+        self.assertEquals(range(2, 20, 2), dojo_compile('1..20 |> filter{/x:x%2==0}')(scope))
 
     def test_composition(self):
         scope = {'inc2':lambda a: a+2, 'str': str}
@@ -241,7 +248,7 @@ class CompilerTestCase(unittest.TestCase):
         self.assertEquals([math, math.sqrt, math.cos, math.log], dojo_compile('[import math(sqrt, cos, log), sqrt, cos, log]')())
 
     def test_import_then_call(self):
-        self.assertEquals(2.0, dojo_compile('import math(sqrt); test=@x:sqrt(x); test(4)')())
+        self.assertEquals(2.0, dojo_compile('import math(sqrt); test=/x:sqrt(x); test(4)')())
 
     def test_import_module_ambiguity(self):
         scope = {'sqrt':3}

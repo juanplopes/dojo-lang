@@ -186,23 +186,24 @@ class CodeGenerator:
         self.patch_op(patch, BOOLEAN_OPS[e.op], len(self.code))
 
     def emit_Function(self, e):
-        body_code = CodeGenerator(codename=e.name, 
+        gen = CodeGenerator(codename=e.name, 
                                   filename=self.filename,
                                   lineno = 1,
                                   argnames = e.args, 
                                   cellvars = e.cell,
                                   freevars = e.free)
+
+        gen.emit(e.body)
+        code = gen.assemble()
+
         if e.free:
             for var in e.free:
                 self.emit_op('LOAD_CLOSURE', self.deref(var))
             self.emit_op('BUILD_TUPLE', len(e.free))
-
-        body_code.emit(e.body)
-        self.emit_op('LOAD_CONST', self.const(body_code.assemble()))
-
-        if e.free:
+            self.emit_op('LOAD_CONST', self.const(code))
             self.emit_op('MAKE_CLOSURE', 0)
         else:
+            self.emit_op('LOAD_CONST', self.const(code))
             self.emit_op('MAKE_FUNCTION', 0)
 
     def emit_If(self, e):

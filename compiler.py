@@ -2,6 +2,7 @@
 from __future__ import print_function
 from parser import Parser
 from codegen import dojo_emit
+import dis
 
 def dojo_compile(source, filename='<string>'):
     ast = Parser(source).program()
@@ -29,6 +30,7 @@ if __name__ == '__main__':
     
     with open(sys.argv[1]) as f:
         compiled = dojo_compile(f.read(), filename=sys.argv[1])
+        #dis.dis(compiled.code)
         compiled()
         
 

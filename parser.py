@@ -105,7 +105,7 @@ class Parser(TokenStream):
         return self.function(ctx)
 
     def function(self, ctx):
-        if self.next_if('@'):
+        if self.next_if('/'):
             args = self._list_of(lambda: self.next('IDENTIFIER').image, ':')
             return self.function_body(ctx, None, args)
             
@@ -207,7 +207,7 @@ class Parser(TokenStream):
             'INTEGER': lambda x: Literal(int(x.image)),
             'FLOAT': lambda x: Literal(float(x.image)),
             'STRING': lambda x: Literal(x.image[1:-1].decode('string-escape')),
-            'IDENTIFIER': lambda x: GetVariable(ctx.request(x.image)),
+            'IDENTIFIER': lambda x: GetVariable(ctx.request(x.image)) if not self.next_if(':') else self.function_body(ctx, None, [x.image]),
             '(': lambda x: self.block(ctx, ')'),
             '[': lambda x: ListLiteral(self._list_of(lambda: self.expr(ctx), ']')),
             '{': lambda x: DictLiteral(self._list_of(lambda: self._key_value(ctx), '}')),            

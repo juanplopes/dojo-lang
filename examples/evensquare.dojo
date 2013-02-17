@@ -1,7 +1,7 @@
 import itertools(imap, ifilter)
 
 0..('Up to (exclusive): ' |> read |> int) 
-|> imap{@x:x**2} 
-|> ifilter{@x:x%2==0} 
+|> imap{def(x): x**2}
+|> ifilter{def(x): x%2==0} 
 |> sum 
 |> write{'The result is:'}
