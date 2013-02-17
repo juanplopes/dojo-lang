@@ -1,0 +1,1 @@
+'Some string: ' |> read |> map{ord => hex} |> ', '.join |> write
