@@ -1,6 +1,5 @@
 # -*- coding:utf8 -*-
 import re, sys, json
-from ast import *
 from itertools import chain
 
 class InvalidSyntax(Exception):

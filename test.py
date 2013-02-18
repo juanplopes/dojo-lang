@@ -1,8 +1,7 @@
 # -*- coding:utf8 -*-
 
 import unittest
-from compiler import dojo_compile
-from scanner import InvalidSyntax, UnexpectedToken
+from dojo import dojo_compile, InvalidSyntax, UnexpectedToken
 
 class CompilerTestCase(unittest.TestCase):
     def test_constant(self):

@@ -2,7 +2,6 @@
 from __future__ import print_function
 from parser import Parser
 from codegen import dojo_emit
-import dis
 
 def dojo_compile(source, filename='<string>'):
     ast = Parser(source).program()
