@@ -11,7 +11,8 @@ class CompilerTestCase(unittest.TestCase):
         self.assertEquals(44, dojo_compile('42+2')())
         self.assertEquals(40, dojo_compile('42-2')())
         self.assertEquals(84, dojo_compile('42*2')())
-        self.assertEquals(21, dojo_compile('42/2')())
+        self.assertEquals(21.5, dojo_compile('43/2')())
+        self.assertEquals(21, dojo_compile('43//2')())
         self.assertEquals(2, dojo_compile('42%4')())
         self.assertEquals(1024, dojo_compile('2**10')())
 
@@ -232,7 +233,7 @@ class CompilerTestCase(unittest.TestCase):
 
     def test_partial_apply(self):
         scope = {'filter':filter}
-        self.assertEquals(range(2, 20, 2), dojo_compile('1..20 |> filter{/x:x%2==0}')(scope))
+        self.assertEquals(list(range(2, 20, 2)), dojo_compile('1..20 |> filter{/x:x%2==0} |> list')(scope))
 
     def test_composition(self):
         scope = {'inc2':lambda a: a+2, 'str': str}

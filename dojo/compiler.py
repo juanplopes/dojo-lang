@@ -1,7 +1,7 @@
 # -*- coding:utf8 -*-
 from __future__ import print_function
-from parser import Parser
-from codegen import dojo_emit
+from dojo.parser import Parser
+from dojo.codegen import dojo_emit
 
 def dojo_compile(source, filename='<string>'):
     ast = Parser(source).program()

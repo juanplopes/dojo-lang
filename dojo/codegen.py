@@ -10,7 +10,8 @@ BINARY_OPS = {
     '+': 'BINARY_ADD',
     '-': 'BINARY_SUBTRACT',
     '*': 'BINARY_MULTIPLY',
-    '/': 'BINARY_DIVIDE',
+    '/': 'BINARY_TRUE_DIVIDE',
+    '//': 'BINARY_FLOOR_DIVIDE',
     '**': 'BINARY_POWER',
     '%': 'BINARY_MODULO',
 }
@@ -75,7 +76,7 @@ class CodeGenerator:
             self.emit_op('STORE_SUBSCR')
     
     def emit_RangeLiteral(self, e):
-        self.emit_op('LOAD_CONST', self.const(xrange))
+        self.emit_op('LOAD_CONST', self.const(range))
         self.emit(e.begin)
         self.emit(e.end)
         if e.step:
@@ -282,9 +283,10 @@ class CodeGenerator:
         varnames = make_tuple(self.varnames)
         freevars = make_tuple(self.freevars)
         cellvars = make_tuple(self.cellvars)
-        code = ''.join([chr(b) for b in self.code]) + chr(opcode.opmap['RETURN_VALUE'])
-        return types.CodeType(self.argcount, 
-                        len(self.varnames), 
+        code = bytes(self.code + [opcode.opmap['RETURN_VALUE']])
+        return types.CodeType(self.argcount,
+                        0,
+                        len(self.varnames),
                         1000, 
                         self.flags, 
                         code, 
@@ -294,7 +296,7 @@ class CodeGenerator:
                         self.filename, 
                         self.codename or '<anonymous>', 
                         self.lineno, 
-                        '',
+                        bytes(),
                         freevars,
                         cellvars)
     

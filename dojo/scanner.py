@@ -1,19 +1,17 @@
 # -*- coding:utf8 -*-
-import re, sys, json
+import re
 from itertools import chain
 
 class InvalidSyntax(Exception):
     def __init__(self, line, column, source):
-        super(Exception, self).__init__(
-            "Invalid syntax at line {} column {}: '{}'"
-                .format(line, column, source))
+        self.message = "Invalid syntax at line {} column {}: '{}'".format(
+            line, column, source)
     
 class UnexpectedToken(Exception):
     def __init__(self, token, allowed):
-        super(Exception, self).__init__(        
-            "Unexpected '{}' at line {} column {}, expected one of: {}"
-                .format(token.name, token.line, token.column, ", ".join(
-                    map(lambda x:"'{}'".format(x), allowed))))
+        self.message = "Unexpected '{}' at line {} column {}, expected one of: {}".format(
+                token.name, token.line, token.column, ", ".join(
+                    map(lambda x:"'{}'".format(x), allowed)))
  
 class Token(object):
     EOF = lambda p: Token('EOF', '', p)
@@ -35,9 +33,11 @@ class Scanner(object):
              ((k, re.compile('^(\s*)({})'.format(v))) for k, v in named.items())))
         
     def best_of(self, a, b, **opts):
-        if not b: return a
-        if opts.get('stop_on_lf') and b.lf: return a
-        return max(a, b, key=lambda x:x and len(x.image))
+        if not b or opts.get('stop_on_lf') and b.lf:
+            return a
+        if not a:
+            return b
+        return max(a, b, key=lambda x: len(x.image))
 
     def scan(self, source, pos, line, column, **opts):
         best = None

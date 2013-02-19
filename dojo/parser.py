@@ -1,9 +1,9 @@
 # -*- coding:utf8 -*-
-from ast import *
-from scanner import *
+from dojo.ast import *
+from dojo.scanner import *
 from functools import partial
     
-SCANNER = Scanner('+', '-', '*', '/', '**', '%', '(', ')', '[', ']', '{', '}',
+SCANNER = Scanner('+', '-', '*', '/', '//', '**', '%', '(', ')', '[', ']', '{', '}',
                   '==', '!=', ',', '=', '@', ';', ':', '..', '|>', '=>', '.', 
                   '<', '<=', '>', '>=', '~', '<<', '>>', '&', '|', '^',
                   'return', 'in', 'not in', 'if', 'else', 'elif', 'and', 'or', 
@@ -141,7 +141,7 @@ class Parser(TokenStream):
         (_binary, BinaryOp, '&'),
         (_binary, BinaryOp, '<<', '>>'),
         (_binary, BinaryOp, '+', '-'),
-        (_binary, BinaryOp, '*', '/', '%'),
+        (_binary, BinaryOp, '*', '/', '//', '%'),
         (_binary, BinaryOp, '**'),
         (_unary, '-', '+', '~'),
     ]
@@ -206,7 +206,7 @@ class Parser(TokenStream):
         return self.expect({
             'INTEGER': lambda x: Literal(int(x.image)),
             'FLOAT': lambda x: Literal(float(x.image)),
-            'STRING': lambda x: Literal(x.image[1:-1].decode('string-escape')),
+            'STRING': lambda x: Literal(x.image[1:-1].encode('utf-8').decode('unicode-escape')),
             'IDENTIFIER': lambda x: GetVariable(ctx.request(x.image)) if not self.next_if(':') else self.function_body(ctx, None, [x.image]),
             '(': lambda x: self.block(ctx, ')'),
             '[': lambda x: ListLiteral(self._list_of(lambda: self.expr(ctx), ']')),
