@@ -106,6 +106,9 @@ class CompilerTestCase(unittest.TestCase):
     def test_define_method_without_slash(self):
         self.assertEquals(1024, dojo_compile('pow10=x:x**10; pow10(2)')())
 
+    def test_set_variable_from_inside_closure(self):
+        self.assertEquals([1, 2, 3], dojo_compile('seq=/:(x=0; /: x=x+1); s = seq(); [s(), s(), s()]')())
+
     def test_define_method_and_use_later(self):
         self.assertEquals(1024, dojo_compile('pow2=/x,y:x**y; pow2(2, 10)')())
 
@@ -376,13 +379,13 @@ class CompilerErrorTestCase(unittest.TestCase):
         with self.assertRaises(UnexpectedToken) as context:
             dojo_compile('2+2\n2+3\n  )')
 
-        self.assertIn('line 3 column 3', context.exception.message)
+        self.assertIn('line 3 column 3', context.exception.args[0])
 
     def test_exception_contains_line_number_on_same_line(self):
         with self.assertRaises(UnexpectedToken) as context:
             dojo_compile('2+2; 2+3  )')
 
-        self.assertIn('line 1 column 11', context.exception.message)
+        self.assertIn('line 1 column 11', context.exception.args[0])
 
     def test_cant_have_two_expressions_on_same_line_without_semicolon(self):
         self.assertRaises(UnexpectedToken, dojo_compile, '2+2 3+3')
@@ -398,7 +401,7 @@ class CompilerErrorTestCase(unittest.TestCase):
         with self.assertRaises(InvalidSyntax) as context:
             dojo_compile('$')
 
-        self.assertIn('line 1 column 1', context.exception.message)
+        self.assertIn('line 1 column 1', context.exception.args[0])
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)

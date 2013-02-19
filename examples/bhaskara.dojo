@@ -4,11 +4,11 @@ def bhaskara(a,b,c): (
     return (-b+sqrt(delta))/2*a
 )
 
-iread = read => int
+iread = input => int
 
 a = 'Value for A: ' |> iread
 b = 'Value for B: ' |> iread
 c = 'Value for C: ' |> iread
 
-write(bhaskara(a,b,c))
+bhaskara(a,b,c) |> print
 

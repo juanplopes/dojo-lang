@@ -21,12 +21,6 @@ class DojoCallable(object):
 if __name__ == '__main__':
     import sys
     
-    def read(prompt): 
-        return raw_input(prompt)
-
-    def write(*messages):
-        print(*messages)
-    
     with open(sys.argv[1]) as f:
         compiled = dojo_compile(f.read(), filename=sys.argv[1])
         #dis.dis(compiled.code)

@@ -4,14 +4,16 @@ from itertools import chain
 
 class InvalidSyntax(Exception):
     def __init__(self, line, column, source):
-        self.message = "Invalid syntax at line {} column {}: '{}'".format(
-            line, column, source)
-    
+        super(Exception, self).__init__(
+            "Invalid syntax at line {} column {}: '{}'"
+            .format(line, column, source))
+
 class UnexpectedToken(Exception):
     def __init__(self, token, allowed):
-        self.message = "Unexpected '{}' at line {} column {}, expected one of: {}".format(
-                token.name, token.line, token.column, ", ".join(
-                    map(lambda x:"'{}'".format(x), allowed)))
+        super(Exception, self).__init__(
+            "Unexpected '{}' at line {} column {}, expected one of: {}"
+            .format(token.name, token.line, token.column, ", ".join(
+                map(lambda x:"'{}'".format(x), sorted(allowed)))))
  
 class Token(object):
     EOF = lambda p: Token('EOF', '', p)
@@ -104,10 +106,5 @@ class TokenStream(object):
         
     def expect(self, actions, **opts):
         token = self.next(*actions.keys(), **opts)
-        try:
-            return actions[token.name](token)
-        except KeyError:
-            if None not in actions:
-                raise
-            return actions[None](token)
-            
+        return actions[token.name](token)
+
