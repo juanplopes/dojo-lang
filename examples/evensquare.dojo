@@ -1,5 +1,0 @@
-0..('Up to (exclusive): ' |> input |> int)
-|> map{x: x**2}
-|> filter{x: x%2==0}
-|> sum 
-|> print{'The result is:'}
