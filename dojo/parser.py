@@ -21,30 +21,32 @@ class Parser(TokenStream):
     def program(self):
         ctx = LexicalContext()
         body = self.block(ctx, 'EOF')
-        return Program(body, ctx.varnames('exported'), ctx.varnames('closure'))
+        return Program(body.line, body, ctx.varnames('exported'), ctx.varnames('closure'))
 
     def block(self, ctx, until):
         exprs = []
+        line = self.line
         while self.ignore(';') and not self.next_if(until):
             exprs.append(self.expr(ctx))
             self.expect_lf_or(';', until)
-        return Block(exprs)
+        return Block(line, exprs)
         
     def _binary(self, higher, clazz, *ops):
-        e = higher()        
-        while self.maybe(*ops, stop_on_lf=True):
-            e = clazz(self.next(*ops).name, e, higher())
+        e = higher()
+        for op in iter(partial(self.next_if, *ops, stop_on_lf=True), None):
+            e = clazz(op.line, op.name, e, higher())
         return e
 
     def _raw(self, higher, ops):
         e = higher()
         while self.maybe(*ops):
-            e = ops[self.next(*ops).name](e, higher())
+            e = ops[self.next(*ops).name](e.line, e, higher())
         return e
 
     def _unary(self, higher, *ops):
-        if self.maybe(*ops):
-            return UnaryOp(self.next(*ops).name, self._unary(higher, *ops))
+        op = self.next_if(*ops)
+        if op:
+            return UnaryOp(op.line, op.name, self._unary(higher, *ops))
         return higher()
 
     def _list_of(self, what, until):
@@ -74,27 +76,30 @@ class Parser(TokenStream):
         elif self.next_if('elif'):
             else_body = self.if_test_and_bodies(ctx)
         else:
-            else_body = Block()
+            else_body = Block(test.line)
         
-        return If(test, then_body, else_body)
+        return If(test.line, test, then_body, else_body)
 
     def yield_expression(self, ctx):
-        if self.next_if('yield'):
-            return Yield(self.expr(ctx))
+        op = self.next_if('yield')
+        if op:
+            return Yield(op.line, self.expr(ctx))
         return self.return_expression(ctx)
             
     def return_expression(self, ctx):
-        if self.next_if('return'):
-            return Return(self.expr(ctx))
+        op = self.next_if('return')
+        if op:
+            return Return(op.line, self.expr(ctx))
         return self.import_expression(ctx)
 
     def import_expression(self, ctx):
-        if self.next_if('import'):
+        op = self.next_if('import')
+        if op:
             name = self.next('IDENTIFIER').image
             items = []        
             if self.next_if('(', stop_on_lf=True):
                 items = self._list_of(lambda: self.next('IDENTIFIER').image, ')')
-            return Import(name, items)
+            return Import(op.line, name, items)
         return self.pipe_forward(ctx)
 
     def pipe_forward(self, ctx):
@@ -105,26 +110,28 @@ class Parser(TokenStream):
 
 
     def function(self, ctx):
-        if self.next_if('/'):
+        op = self.next_if('/')
+        if op:
             args = self._list_of(lambda: self.next('IDENTIFIER').image, ':')
-            return self.function_body(ctx, None, args, self.assignment)
-            
-        if self.next_if('def'):
+            return self.function_body(op.line, ctx, None, args, self.assignment)
+
+        op = self.next_if('def')
+        if op:
             name = self.next('IDENTIFIER').image
             var = ctx.ensure(name, 'local')
             
             self.next('(')
             args = self._list_of(lambda: self.next('IDENTIFIER').image, ')')
             self.next(':')
-            return SetVariable(var, self.function_body(ctx, name, args, self.expr))
+            return SetVariable(op.line, var, self.function_body(op.line, ctx, name, args, self.expr))
             
             
         return self.assignment(ctx)
 
-    def function_body(self, ctx, name, args, body_type):
+    def function_body(self, line, ctx, name, args, body_type):
         body_ctx = ctx.push(args)
         body = body_type(body_ctx)
-        return Function(name, args, body, 
+        return Function(line, name, args, body,
                         body_ctx.varnames('exported'), 
                         body_ctx.varnames('closure'))
 
@@ -160,31 +167,31 @@ class Parser(TokenStream):
 
     def call(self, ctx):
         e = self.get_attribute(ctx)
-        while self.maybe('(', '{', stop_on_lf=True):
+        for op in iter(partial(self.maybe, '(', '{', stop_on_lf=True), None):
             e = self.expect({
-                    '(': lambda x: Call(e, self._list_of(lambda: self.expr(ctx), ')')),
-                    '{': lambda x: PartialCall(e, self._list_of(lambda: self.expr(ctx), '}'))}) 
+                    '(': lambda x: Call(op.line, e, self._list_of(lambda: self.expr(ctx), ')')),
+                    '{': lambda x: PartialCall(op.line, e, self._list_of(lambda: self.expr(ctx), '}'))})
         return e
 
     def get_attribute(self, ctx):
         e = self.get_subscript(ctx)
-        while self.next_if('.'):
+        for op in iter(partial(self.next_if, '.'), None):
             member = self.next('IDENTIFIER')
-            e = GetAttribute(e, member.image)
+            e = GetAttribute(op.line, e, member.image)
         return e
         
     def get_subscript(self, ctx):
         e = self.primary(ctx)
 
-        while self.next_if('[', stop_on_lf=True):
-            v1 = self.expr(ctx) if not self.maybe('..') else Literal(None)
+        for op in iter(partial(self.next_if, '[', stop_on_lf=True), None):
+            v1 = self.expr(ctx) if not self.maybe('..') else Literal(op.line, None)
 
             if self.next_if('..'):
-                v2 = self.expr(ctx) if not self.maybe(']') else Literal(None)
-                v1 = Slice(v1, v2)
+                v2 = self.expr(ctx) if not self.maybe(']') else Literal(op.line, None)
+                v1 = Slice(v1.line, v1, v2)
 
             self.next(']')
-            e = GetSubscript(e, v1)
+            e = GetSubscript(op.line, e, v1)
 
         return e
 
@@ -196,12 +203,12 @@ class Parser(TokenStream):
 
     def primary(self, ctx):
         return self.expect({
-            'INTEGER': lambda x: Literal(int(x.image)),
-            'FLOAT': lambda x: Literal(float(x.image)),
-            'STRING': lambda x: Literal(x.image[1:-1].encode('utf-8').decode('unicode-escape')),
-            'IDENTIFIER': lambda x: GetVariable(ctx.request(x.image)) if not self.next_if(':') else self.function_body(ctx, None, [x.image], self.assignment),
+            'INTEGER': lambda x: Literal(x.line, int(x.image)),
+            'FLOAT': lambda x: Literal(x.line, float(x.image)),
+            'STRING': lambda x: Literal(x.line, x.image[1:-1].encode('utf-8').decode('unicode-escape')),
+            'IDENTIFIER': lambda x: GetVariable(x.line, ctx.request(x.image)) if not self.next_if(':') else self.function_body(x.line, ctx, None, [x.image], self.assignment),
             '(': lambda x: self.block(ctx, ')'),
-            '[': lambda x: ListLiteral(self._list_of(lambda: self.expr(ctx), ']')),
-            '{': lambda x: DictLiteral(self._list_of(lambda: self._key_value(ctx), '}')),            
+            '[': lambda x: ListLiteral(x.line, self._list_of(lambda: self.expr(ctx), ']')),
+            '{': lambda x: DictLiteral(x.line, self._list_of(lambda: self._key_value(ctx), '}')),
         }) 
 

@@ -53,138 +53,183 @@ class Variable(object):
         return self.context.assign(self.name)
 
 class Program(object):
-    def __init__(self, body, cell, free):
+    def __init__(self, line, body, cell, free):
+        self.line = line
         self.body = body
         self.cell = cell
         self.free = free
 
 class Block(object):
-    def __init__(self, exprs=[]):
+    def __init__(self, line, exprs=[]):
+        self.line = line
         self.exprs = exprs
+
 
 class Literal(object):
-    def __init__(self, value):
+    def __init__(self, line, value):
+        self.line = line
         self.value = value
+
 
 class ListLiteral(object):
-    def __init__(self, exprs):
+    def __init__(self, line, exprs):
+        self.line = line
         self.exprs = exprs
 
+
 class DictLiteral(object):
-    def __init__(self, items):
+    def __init__(self, line, items):
+        self.line = line
         self.items = items
 
+
 class GetVariable(object):
-    def __init__(self, var):
+    def __init__(self, line, var):
+        self.line = line
         self.var = var
-                
+
     def to_assignment(self, expr):
-        return SetVariable(self.var.to_assignment(), expr)
+        return SetVariable(self.line, self.var.to_assignment(), expr)
 
 class SetVariable(object):
-    def __init__(self, var, expr):
+    def __init__(self, line, var, expr):
+        self.line = line
         self.var = var
         self.expr = expr
 
+
 class GetAttribute(object):
-    def __init__(self, target, name):
+    def __init__(self, line, target, name):
+        self.line = line
         self.target = target
         self.name = name
 
     def to_assignment(self, expr):
-        return SetAttribute(self.target, self.name, expr)
+        return SetAttribute(self.line, self.target, self.name, expr)
 
 class SetAttribute(object):
-    def __init__(self, target, name, value):
+    def __init__(self, line, target, name, value):
+        self.line = line
         self.target = target
         self.name = name
         self.value = value
-    
+
+
 class GetSubscript(object):
-    def __init__(self, target, index):
+    def __init__(self, line, target, index):
+        self.line = line
         self.target = target
         self.index = index
 
     def to_assignment(self, expr):
-        return SetSubscript(self.target, self.index, expr)
+        return SetSubscript(self.line, self.target, self.index, expr)
 
 class SetSubscript(object):
-    def __init__(self, target, index, expr):
+    def __init__(self, line, target, index, expr):
+        self.line = line
         self.target = target
         self.index = index
         self.expr = expr
 
+
 class Slice(object):
-    def __init__(self, start, end):
+    def __init__(self, line, start, end):
+        self.line = line
         self.start = start
         self.end = end
 
+
 class Return(object):
-    def __init__(self, expr):
+    def __init__(self, line, expr):
+        self.line = line
         self.expr = expr
-   
+
+
 class Yield(object):
-    def __init__(self, expr):
+    def __init__(self, line, expr):
+        self.line = line
         self.expr = expr
-    
+
+
 class Call(object):
-    def __init__(self, method, args):
+    def __init__(self, line, method, args):
+        self.line = line
         self.method = method
         self.args = args
-    
+
+
 class PipeForward(object):
-    def __init__(self, arg, method):
+    def __init__(self, line, arg, method):
+        self.line = line
         self.arg = arg
         self.method = method
 
+
 class Composition(object):
-    def __init__(self, lhs, rhs):
+    def __init__(self, line, lhs, rhs):
+        self.line = line
         self.lhs = lhs
         self.rhs = rhs
 
+
 class PartialCall(object):
-    def __init__(self, method, args):
+    def __init__(self, line, method, args):
+        self.line = line
         self.method = method
         self.args = args
 
+
 class BinaryOp(object):
-    def __init__(self, op, lhs, rhs):
+    def __init__(self, line, op, lhs, rhs):
+        self.line = line
         self.op = op
         self.lhs = lhs
         self.rhs = rhs
 
+
 class CompareOp(object):
-    def __init__(self, op, lhs, rhs):
+    def __init__(self, line, op, lhs, rhs):
+        self.line = line
         self.op = op
         self.lhs = lhs
         self.rhs = rhs
-    
+
+
 class BooleanOp(object):
-    def __init__(self, op, lhs, rhs):
+    def __init__(self, line, op, lhs, rhs):
+        self.line = line
         self.op = op
         self.lhs = lhs
         self.rhs = rhs
-    
+
+
 class UnaryOp(object):
-    def __init__(self, op, expr):
+    def __init__(self, line, op, expr):
+        self.line = line
         self.op = op
         self.expr = expr
 
+
 class If(object):
-    def __init__(self, test, then_body, else_body):
+    def __init__(self, line, test, then_body, else_body):
+        self.line = line
         self.test = test
         self.then_body = then_body
         self.else_body = else_body
 
+
 class Function(object):
-    def __init__(self, name, args, body, cell, free):
+    def __init__(self, line, name, args, body, cell, free):
+        self.line = line
         self.name = name
         self.args = args
         self.body = body
         self.cell = cell
         self.free = free
 
+
 class Import(object):
-    def __init__(self, name, items):
+    def __init__(self, line, name, items):
+        self.line = line
         self.name = name
         self.items = items
