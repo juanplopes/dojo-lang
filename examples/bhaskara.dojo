@@ -4,6 +4,7 @@ def bhaskara(a,b,c): (
     return (-b+sqrt(delta))/2*a
 )
 
+
 iread = input => int
 
 a = 'Value for A: ' |> iread

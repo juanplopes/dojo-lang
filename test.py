@@ -1,7 +1,9 @@
 # -*- coding:utf8 -*-
 
 import unittest
+import types
 from dojo import dojo_compile, InvalidSyntax, UnexpectedToken
+
 
 class CompilerTestCase(unittest.TestCase):
     def test_constant(self):
@@ -107,7 +109,7 @@ class CompilerTestCase(unittest.TestCase):
         self.assertEquals(1024, dojo_compile('pow10=x:x**10; pow10(2)')())
 
     def test_set_variable_from_inside_closure(self):
-        self.assertEquals([1, 2, 3], dojo_compile('seq=/:(x=0; /: x=x+1); s = seq(); [s(), s(), s()]')())
+        self.assertEquals([1, 2, 3], dojo_compile('seq=/:(x=0; /:x=x+1); s = seq(); [s(), s(), s()]')())
 
     def test_define_method_and_use_later(self):
         self.assertEquals(1024, dojo_compile('pow2=/x,y:x**y; pow2(2, 10)')())
@@ -214,33 +216,23 @@ class CompilerTestCase(unittest.TestCase):
         self.assertEquals({}, dojo_compile('{}')())
         self.assertEquals({'abc':123, 456:'qwe'}, dojo_compile('{"abc":123, 456:"qwe"}')())
 
-    def test_range_literal(self):
-        obj = dojo_compile('5..8')()
-        it = iter(obj)
-        self.assertEquals(5, next(it))
-        self.assertEquals(6, next(it))
-        self.assertEquals(7, next(it))
-        self.assertRaises(StopIteration, next, it)
-    
-    def test_range_with_step(self):
-        obj = dojo_compile('5..10:2')()
-        it = iter(obj)
-        self.assertEquals(5, next(it))
-        self.assertEquals(7, next(it))
-        self.assertEquals(9, next(it))
-        self.assertRaises(StopIteration, next, it)    
-
     def test_pipe_forward(self):
         scope = {'inc2':lambda a: a+2}
         self.assertEquals(44, dojo_compile('42 |> inc2')(scope))
 
     def test_partial_apply(self):
         scope = {'filter':filter}
-        self.assertEquals(list(range(2, 20, 2)), dojo_compile('1..20 |> filter{/x:x%2==0} |> list')(scope))
+        self.assertEquals(list(range(2, 20, 2)), dojo_compile('range(1, 20) |> filter{x:x%2==0} |> list')(scope))
 
     def test_composition(self):
         scope = {'inc2':lambda a: a+2, 'str': str}
         self.assertEquals('44', dojo_compile('42 |> inc2 => str')(scope))
+
+    def test_composition_precedence(self):
+        self.assertEquals(['44', types.FunctionType, types.FunctionType], dojo_compile('[42 |> test=/x:x+2 => test2=/x:str(x), type(test), type(test2)]')())
+
+    def test_pipe_forward_precedence(self):
+        self.assertEquals([44, types.FunctionType], dojo_compile('[42 |> test=/x:x+2, type(test)]')())
 
     def test_import_module(self):
         math = __import__('math')
@@ -358,21 +350,16 @@ class CompilerTestCase(unittest.TestCase):
         self.assertEquals(3, dojo_compile('a=[1,2,3,4]; a[2]')())
 
     def test_item_slice(self):
-        self.assertEquals([2,4], dojo_compile('a=[1,2,3,4]; a[1:4:2]')())
-        self.assertEquals([4,3,2], dojo_compile('a=[1,2,3,4]; a[:0:-1]')())
-        self.assertEquals([1,2,3,4], dojo_compile('a=[1,2,3,4]; a[::]')())
-        self.assertEquals([2,4], dojo_compile('a=[1,2,3,4]; a[1::2]')())
-        self.assertEquals([1,3], dojo_compile('a=[1,2,3,4]; a[::2]')())
-        self.assertEquals([2], dojo_compile('a=[1,2,3,4]; a[1:3:2]')())
-        self.assertEquals([3,4], dojo_compile('a=[1,2,3,4]; a[2:]')())
-        self.assertEquals([1,2], dojo_compile('a=[1,2,3,4]; a[:2]')())
-        self.assertEquals([4,3,2,1], dojo_compile('a=[1,2,3,4]; a[::-1]')())
+        self.assertEquals([1,2,3,4], dojo_compile('a=[1,2,3,4]; a[..]')())
+        self.assertEquals([2], dojo_compile('a=[1,2,3,4]; a[1..2]')())
+        self.assertEquals([3,4], dojo_compile('a=[1,2,3,4]; a[2..]')())
+        self.assertEquals([1,2], dojo_compile('a=[1,2,3,4]; a[..2]')())
 
     def test_item_access_set(self):
         self.assertEquals([1,2,42,4], dojo_compile('a=[1,2,3,4]; a[2]=42; a')())
 
     def test_slice_set(self):
-        self.assertEquals([1,2,5,6], dojo_compile('a=[1,2,3,4]; a[2:]=[5,6]; a')())
+        self.assertEquals([1,2,5,6], dojo_compile('a=[1,2,3,4]; a[2..]=[5,6]; a')())
 
 class CompilerErrorTestCase(unittest.TestCase):
     def test_exception_contains_line_number_on_different_line(self):

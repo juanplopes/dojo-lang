@@ -75,16 +75,6 @@ class CodeGenerator:
             self.emit(key)
             self.emit_op('STORE_SUBSCR')
     
-    def emit_RangeLiteral(self, e):
-        self.emit_op('LOAD_CONST', self.const(range))
-        self.emit(e.begin)
-        self.emit(e.end)
-        if e.step:
-            self.emit(e.step)
-            self.emit_op('CALL_FUNCTION', 3, 0)
-        else:
-            self.emit_op('CALL_FUNCTION', 2)
-    
     def emit_Literal(self, e):
         self.emit_op('LOAD_CONST', self.const(e.value))
 
@@ -130,8 +120,7 @@ class CodeGenerator:
     def emit_Slice(self, e):
         self.emit(e.start)
         self.emit(e.end)
-        self.emit(e.step)
-        self.emit_op('BUILD_SLICE', 3)
+        self.emit_op('BUILD_SLICE', 2)
 
     def emit_Return(self, e):
         self.emit(e.expr)

@@ -74,12 +74,6 @@ class DictLiteral(object):
     def __init__(self, items):
         self.items = items
 
-class RangeLiteral(object):
-    def __init__(self, begin, end, step):
-        self.begin = begin
-        self.end = end
-        self.step = step
-
 class GetVariable(object):
     def __init__(self, var):
         self.var = var
@@ -121,10 +115,9 @@ class SetSubscript(object):
         self.expr = expr
 
 class Slice(object):
-    def __init__(self, start, end, step):
+    def __init__(self, start, end):
         self.start = start
         self.end = end
-        self.step = step
 
 class Return(object):
     def __init__(self, expr):
