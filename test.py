@@ -73,6 +73,14 @@ class CompilerTestCase(unittest.TestCase):
     def test_callable(self):
         scope = {'add':lambda x, y:x+y}
         self.assertEquals(14, dojo_compile('2*add(5, 2)')(scope))
+
+    def test_callable_with_named_args(self):
+        scope = {'div':lambda x=10, y=2:x/y}
+        self.assertEquals(2, dojo_compile('div(&y=5)')(scope))
+    
+    def test_callable_named_params(self):
+        scope = {'add':lambda x, y:x+y}
+        self.assertEquals(14, dojo_compile('2*add(5, 2)')(scope))
         
     def test_with_varargs(self):
         scope = {'add':lambda *x:x}
@@ -364,6 +372,10 @@ class CompilerTestCase(unittest.TestCase):
 class ComplexOnesTestCase(unittest.TestCase):
     def test_reverse_list_to_dict(self):
         self.assertEquals({'a':0, 'b':1, 'c':2}, dojo_compile('["a","b","c"]|>enumerate|>map{reversed}|>dict')())
+
+    def test_reverse_dict_to_list(self):
+        self.assertEquals(['a', 'b', 'c'], dojo_compile('{"a":0,"b":1,"c":2}|>dict.items|>sorted{&key=x:x[1]}|>map{x:x[0]}')())
+
 
 class CompilerErrorTestCase(unittest.TestCase):
     def test_exception_contains_line_number_on_different_line(self):
