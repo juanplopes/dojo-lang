@@ -361,6 +361,10 @@ class CompilerTestCase(unittest.TestCase):
     def test_slice_set(self):
         self.assertEquals([1,2,5,6], dojo_compile('a=[1,2,3,4]; a[2..]=[5,6]; a')())
 
+class ComplexOnesTestCase(unittest.TestCase):
+    def test_reverse_list_to_dict(self):
+        self.assertEquals({'a':0, 'b':1, 'c':2}, dojo_compile('["a","b","c"]|>enumerate|>map{reversed}|>dict')())
+
 class CompilerErrorTestCase(unittest.TestCase):
     def test_exception_contains_line_number_on_different_line(self):
         with self.assertRaises(UnexpectedToken) as context:
