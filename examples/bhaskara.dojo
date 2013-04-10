@@ -5,7 +5,7 @@ def bhaskara(a,b,c): (
 )
 
 
-iread = input => int
+iread = input :: int
 
 a = 'Value for A: ' |> iread
 b = 'Value for B: ' |> iread

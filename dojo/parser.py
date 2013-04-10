@@ -4,7 +4,7 @@ from dojo.scanner import *
 from functools import partial
     
 SCANNER = Scanner('+', '-', '*', '/', '//', '**', '%', '(', ')', '[', ']', '{', '}',
-                  '==', '!=', ',', '=', '@', ';', ':', '..', '|>', '=>', '.',
+                  '==', '!=', ',', '=', '@', ';', ':', '::', '..', '|>', '=>', '.',
                   '<', '<=', '>', '>=', '~', '<<', '>>', '&', '|', '^',
                   'return', 'in', 'not in', 'if', 'else', 'elif', 'and', 'or', 
                   'not', 'import', 'def', 'yield',
@@ -49,13 +49,13 @@ class Parser(TokenStream):
             return UnaryOp(op.line, op.name, self._unary(higher, *ops))
         return higher()
 
-    def _list_of(self, what, until):
+    def _list_of(self, what, until, *rest):
         args = []
-        if not self.maybe(until):
+        if not self.maybe(until, *rest):
             args.append(what())
-            while self.next_if(',') and not self.maybe(until):
+            while self.next_if(',') and not self.maybe(until, *rest):
                 args.append(what())
-        self.next(until)
+        self.next_if(until)
         return args 
 
     def expr(self, ctx):
@@ -103,16 +103,12 @@ class Parser(TokenStream):
         return self.pipe_forward(ctx)
 
     def pipe_forward(self, ctx):
-        return self._raw(partial(self.composition, ctx), {'|>': PipeForward})
-
-    def composition(self, ctx):
-        return self._raw(partial(self.function, ctx), {'=>': Composition})
-
+        return self._raw(partial(self.function, ctx), {'|>': PipeForward})
 
     def function(self, ctx):
         op = self.next_if('/')
         if op:
-            args = self._list_of(lambda: self.next('IDENTIFIER').image, ':')
+            args = self._list_of(lambda: self.next('IDENTIFIER').image, '=>')
             return self.function_body(op.line, ctx, None, args, self.assignment)
 
         op = self.next_if('def')
@@ -143,6 +139,7 @@ class Parser(TokenStream):
         return to
 
     OPS = [
+        (_raw, {'::':Composition}),
         (_binary, BooleanOp, 'or'),
         (_binary, BooleanOp, 'and'),
         (_unary, 'not'),
@@ -165,12 +162,27 @@ class Parser(TokenStream):
         return current()
 
 
+    def _named_args(self, ctx):
+        self.next('@')
+        name = self.next('IDENTIFIER').image
+        self.next('=')
+        expr = self.expr(ctx)
+        return (name, expr)
+
+    def _make_call(self, ctx, clazz, op, target, until):
+        args = self._list_of(lambda: self.expr(ctx), until, '@')
+        if self.maybe('@'):
+            kwargs = self._list_of(lambda: self._named_args(ctx), until)
+        else:
+            kwargs = ()
+        return clazz(op.line, target, args, kwargs)
+
     def call(self, ctx):
         e = self.get_attribute(ctx)
         for op in iter(partial(self.maybe, '(', '{', stop_on_lf=True), None):
             e = self.expect({
-                    '(': lambda x: Call(op.line, e, self._list_of(lambda: self.expr(ctx), ')')),
-                    '{': lambda x: PartialCall(op.line, e, self._list_of(lambda: self.expr(ctx), '}'))})
+                    '(': lambda x: self._make_call(ctx, Call, op, e, ')'),
+                    '{': lambda x: self._make_call(ctx, PartialCall, op, e, '}')})
         return e
 
     def get_attribute(self, ctx):
@@ -206,7 +218,7 @@ class Parser(TokenStream):
             'INTEGER': lambda x: Literal(x.line, int(x.image)),
             'FLOAT': lambda x: Literal(x.line, float(x.image)),
             'STRING': lambda x: Literal(x.line, x.image[1:-1].encode('utf-8').decode('unicode-escape')),
-            'IDENTIFIER': lambda x: GetVariable(x.line, ctx.request(x.image)) if not self.next_if(':') else self.function_body(x.line, ctx, None, [x.image], self.assignment),
+            'IDENTIFIER': lambda x: GetVariable(x.line, ctx.request(x.image)) if not self.next_if('=>') else self.function_body(x.line, ctx, None, [x.image], self.assignment),
             '(': lambda x: self.block(ctx, ')'),
             '[': lambda x: ListLiteral(x.line, self._list_of(lambda: self.expr(ctx), ']')),
             '{': lambda x: DictLiteral(x.line, self._list_of(lambda: self._key_value(ctx), '}')),

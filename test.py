@@ -76,7 +76,8 @@ class CompilerTestCase(unittest.TestCase):
 
     def test_callable_with_named_args(self):
         scope = {'div':lambda x=10, y=2:x/y}
-        self.assertEquals(2, dojo_compile('div(&y=5)')(scope))
+        compiled = dojo_compile('div(@y=5)')
+        self.assertEquals(2, compiled(scope))
     
     def test_callable_named_params(self):
         scope = {'add':lambda x, y:x+y}
@@ -114,13 +115,13 @@ class CompilerTestCase(unittest.TestCase):
             ,4+4)""")(scope))
 
     def test_define_method_without_slash(self):
-        self.assertEquals(1024, dojo_compile('pow10=x:x**10; pow10(2)')())
+        self.assertEquals(1024, dojo_compile('pow10=x=>x**10; pow10(2)')())
 
     def test_set_variable_from_inside_closure(self):
-        self.assertEquals([1, 2, 3], dojo_compile('seq=/:(x=0; /:x=x+1); s = seq(); [s(), s(), s()]')())
+        self.assertEquals([1, 2, 3], dojo_compile('seq=/=>(x=0; /=>x=x+1); s = seq(); [s(), s(), s()]')())
 
     def test_define_method_and_use_later(self):
-        self.assertEquals(1024, dojo_compile('pow2=/x,y:x**y; pow2(2, 10)')())
+        self.assertEquals(1024, dojo_compile('pow2=/x,y=>x**y; pow2(2, 10)')())
 
     def test_define_generator_method(self):
         self.assertEquals([2, 10], dojo_compile('def pow2(x,y):(yield x; yield y); list(pow2(2, 10))')())
@@ -130,7 +131,7 @@ class CompilerTestCase(unittest.TestCase):
 
     def test_define_multiline_functions(self):
         self.assertEquals(1024, dojo_compile("""
-            test = /x,y:(
+            test = /x,y=>(
                 a = y**.5
                 x**a
             )
@@ -139,7 +140,7 @@ class CompilerTestCase(unittest.TestCase):
 
     def test_define_multiline_functions_with_parenthesis_below(self):
         self.assertEquals(1024, dojo_compile("""
-            test = /x,y:
+            test = /x,y=>
             (
                 a = y**.5
                 x**a
@@ -149,7 +150,7 @@ class CompilerTestCase(unittest.TestCase):
 
     def test_define_multiline_with_return_functions(self):
         self.assertEquals(1024, dojo_compile("""
-            test = /x,y:(
+            test = /x,y=>(
                 a = y**.5
                 return x**a
             )
@@ -157,14 +158,14 @@ class CompilerTestCase(unittest.TestCase):
         """)())
 
     def test_define_method_with_closure_and_use_later(self):
-        self.assertEquals(1024, dojo_compile('pow=x:y:x**y; pow(2)(10)')())
+        self.assertEquals(1024, dojo_compile('pow=x=>y=>x**y; pow(2)(10)')())
 
     def test_recursive_method(self):
         self.assertEquals(55, dojo_compile('def fib(n): n<=2 and 1 or fib(n-1)+ fib(n-2); fib(10)')())
 
 
     def test_define_method_and_use_later_accessing_outside_variables(self):
-        self.assertEquals(1024, dojo_compile('z=10; pow=/x:x**z; pow(2)')())
+        self.assertEquals(1024, dojo_compile('z=10; pow=/x=>x**z; pow(2)')())
 
     def test_equality_operator(self):
         self.assertEquals(True, dojo_compile('a=2; b=2; a==b')())
@@ -230,17 +231,17 @@ class CompilerTestCase(unittest.TestCase):
 
     def test_partial_apply(self):
         scope = {'filter':filter}
-        self.assertEquals(list(range(2, 20, 2)), dojo_compile('range(1, 20) |> filter{x:x%2==0} |> list')(scope))
+        self.assertEquals(list(range(2, 20, 2)), dojo_compile('range(1, 20) |> filter{x=>x%2==0} |> list')(scope))
 
     def test_composition(self):
         scope = {'inc2':lambda a: a+2, 'str': str}
-        self.assertEquals('44', dojo_compile('42 |> inc2 => str')(scope))
+        self.assertEquals('44', dojo_compile('42 |> inc2 :: str')(scope))
 
     def test_composition_precedence(self):
-        self.assertEquals(['44', types.FunctionType, types.FunctionType], dojo_compile('[42 |> test=/x:x+2 => test2=/x:str(x), type(test), type(test2)]')())
+        self.assertEquals(['44', types.FunctionType, types.FunctionType], dojo_compile('[42 |> (test=/x=>x+2) :: (test2=/x=>str(x)), type(test), type(test2)]')())
 
     def test_pipe_forward_precedence(self):
-        self.assertEquals([44, types.FunctionType], dojo_compile('[42 |> test=/x:x+2, type(test)]')())
+        self.assertEquals([44, types.FunctionType], dojo_compile('[42 |> test=/x=>x+2, type(test)]')())
 
     def test_import_module(self):
         math = __import__('math')
@@ -251,7 +252,7 @@ class CompilerTestCase(unittest.TestCase):
         self.assertEquals([math, math.sqrt, math.cos, math.log], dojo_compile('[import math(sqrt, cos, log), sqrt, cos, log]')())
 
     def test_import_then_call(self):
-        self.assertEquals(2.0, dojo_compile('import math(sqrt); test=/x:sqrt(x); test(4)')())
+        self.assertEquals(2.0, dojo_compile('import math(sqrt); test=/x=>sqrt(x); test(4)')())
 
     def test_import_module_ambiguity(self):
         scope = {'sqrt':3}
@@ -374,7 +375,7 @@ class ComplexOnesTestCase(unittest.TestCase):
         self.assertEquals({'a':0, 'b':1, 'c':2}, dojo_compile('["a","b","c"]|>enumerate|>map{reversed}|>dict')())
 
     def test_reverse_dict_to_list(self):
-        self.assertEquals(['a', 'b', 'c'], dojo_compile('{"a":0,"b":1,"c":2}|>dict.items|>sorted{&key=x:x[1]}|>map{x:x[0]}')())
+        self.assertEquals(['a', 'b', 'c'], dojo_compile('{"a":0,"b":1,"c":2}|>dict.items|>sorted{@key=x=>x[1]}|>map{x=>x[0]}|>list')())
 
 
 class CompilerErrorTestCase(unittest.TestCase):

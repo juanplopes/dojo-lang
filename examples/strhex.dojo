@@ -1,1 +1,1 @@
-'Some string: ' |> input |> map{ord => hex} |> ', '.join |> print
+'Some string: ' |> input |> map{ord::hex} |> ', '.join |> print

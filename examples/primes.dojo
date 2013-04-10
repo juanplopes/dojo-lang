@@ -1,7 +1,7 @@
 import math(sqrt, ceil)
 
 range(2, 'Up to (exclusive): ' |> input |> int)
-|> filter{n: (range(2, (n|>sqrt|>int)+1) |> map{x: n%x!=0} |> all)}
+|> filter{n=> (range(2, (n|>sqrt|>int)+1) |> map{x => n%x!=0} |> all)}
 |> map{str}
 |> ', '.join
 |> print{'The result is:'}

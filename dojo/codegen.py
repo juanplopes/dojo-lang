@@ -131,12 +131,18 @@ class CodeGenerator:
         self.emit_op('YIELD_VALUE')
         self.flags |= CO_GENERATOR
         
+    def emit_args(self, e):
+        for arg in e.args:
+            self.emit(arg)
+        for key, arg in e.kwargs:
+            self.emit_op('LOAD_CONST', self.const(key))
+            self.emit(arg)
+        
     def emit_PartialCall(self, e):
         self.emit_op('LOAD_CONST', self.const(functools.partial))
         self.emit(e.method)
-        for arg in e.args:
-            self.emit(arg)
-        self.emit_op('CALL_FUNCTION', len(e.args)+1, 0)
+        self.emit_args(e)
+        self.emit_op('CALL_FUNCTION', len(e.args)+1, len(e.kwargs))
 
     def emit_Composition(self, e):
         self.emit_op('LOAD_CONST', self.const(COMPOSE))
@@ -146,9 +152,8 @@ class CodeGenerator:
 
     def emit_Call(self, e):
         self.emit(e.method)
-        for arg in e.args:
-            self.emit(arg)
-        self.emit_op('CALL_FUNCTION', len(e.args), 0)
+        self.emit_args(e)
+        self.emit_op('CALL_FUNCTION', len(e.args), len(e.kwargs))
 
     def emit_PipeForward(self, e):
         self.emit(e.method)

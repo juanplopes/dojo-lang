@@ -152,10 +152,11 @@ class Yield(object):
 
 
 class Call(object):
-    def __init__(self, line, method, args):
+    def __init__(self, line, method, args, kwargs):
         self.line = line
         self.method = method
         self.args = args
+        self.kwargs = kwargs
 
 
 class PipeForward(object):
@@ -173,10 +174,11 @@ class Composition(object):
 
 
 class PartialCall(object):
-    def __init__(self, line, method, args):
+    def __init__(self, line, method, args, kwargs):
         self.line = line
         self.method = method
         self.args = args
+        self.kwargs = kwargs
 
 
 class BinaryOp(object):
