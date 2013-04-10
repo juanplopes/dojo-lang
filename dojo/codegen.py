@@ -1,5 +1,5 @@
 # -*- coding:utf8 -*-
-import functools, types, opcode
+import functools, types, opcode, sys
 
 BINARY_OPS = {
     '&': 'BINARY_AND',
@@ -277,20 +277,38 @@ class CodeGenerator:
         varnames = make_tuple(self.varnames)
         freevars = make_tuple(self.freevars)
         cellvars = make_tuple(self.cellvars)
-        code = bytes(self.code + [opcode.opmap['RETURN_VALUE']])
-        return types.CodeType(self.argcount,
-                        0,
-                        len(self.varnames),
-                        1000, 
-                        self.flags, 
-                        code, 
-                        consts, 
-                        names, 
-                        varnames, 
-                        self.filename, 
-                        self.codename or '<anonymous>', 
-                        self.lineno, 
-                        bytes(),
-                        freevars,
-                        cellvars)
+
+        if sys.version_info >= (3, 0):
+            code = bytes(self.code + [opcode.opmap['RETURN_VALUE']])
+            return types.CodeType(self.argcount,
+                            0,
+                            len(self.varnames),
+                            1000, 
+                            self.flags, 
+                            code, 
+                            consts, 
+                            names, 
+                            varnames, 
+                            self.filename, 
+                            self.codename or '<anonymous>', 
+                            self.lineno, 
+                            bytes(),
+                            freevars,
+                            cellvars)
+        else:
+            code = ''.join([chr(b) for b in self.code]) + chr(opcode.opmap['RETURN_VALUE'])
+            return types.CodeType(self.argcount,
+                            len(self.varnames),
+                            1000, 
+                            self.flags, 
+                            code, 
+                            consts, 
+                            names, 
+                            varnames, 
+                            self.filename, 
+                            self.codename or '<anonymous>', 
+                            self.lineno, 
+                            bytes(),
+                            freevars,
+                            cellvars)
     
