@@ -231,7 +231,6 @@ class Function(object):
 
 
 class Import(object):
-    def __init__(self, line, name, items):
+    def __init__(self, line, items):
         self.line = line
-        self.name = name
         self.items = items

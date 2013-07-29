@@ -49,7 +49,7 @@ class Parser(TokenStream):
             return UnaryOp(op.line, op.name, self._unary(higher, *ops))
         return higher()
 
-    def _list_of(self, what, until, *rest):
+    def _list_of(self, what, until = None, *rest):
         args = []
         if not self.maybe(until, *rest):
             args.append(what())
@@ -92,14 +92,19 @@ class Parser(TokenStream):
             return Return(op.line, self.expr(ctx))
         return self.import_expression(ctx)
 
+    def import_expression_item(self, ctx):
+        module = self.next('IDENTIFIER').image
+        if self.next_if('(', stop_on_lf=True):
+            names = self._list_of(lambda: self.next('IDENTIFIER').image, ')')
+            return [module, names]
+        return [module, None]
+
     def import_expression(self, ctx):
         op = self.next_if('import')
         if op:
-            name = self.next('IDENTIFIER').image
-            items = []        
-            if self.next_if('(', stop_on_lf=True):
-                items = self._list_of(lambda: self.next('IDENTIFIER').image, ')')
-            return Import(op.line, name, items)
+            items = self._list_of(lambda: self.import_expression_item(ctx))        
+            return Import(op.line, items)
+            
         return self.pipe_forward(ctx)
 
     def pipe_forward(self, ctx):

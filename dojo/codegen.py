@@ -212,17 +212,18 @@ class CodeGenerator:
         self.patch_op(patch2, 'JUMP_ABSOLUTE', len(self.code))
 
     def emit_Import(self, e):
-        self.emit_op(e.line, 'LOAD_CONST', self.const(-1))
-        self.emit_op(e.line, 'LOAD_CONST', self.const(tuple(e.items)))
-        self.emit_op(e.line, 'IMPORT_NAME', self.name(e.name))
-        self.emit_op(e.line, 'DUP_TOP')
-        
-        if e.items:
-            for item in e.items:
-                self.emit_op(e.line, 'IMPORT_FROM', self.name(item))
-                self.emit_op(e.line, 'STORE_GLOBAL', self.name(item))
-        else:
-            self.emit_op(e.line, 'STORE_GLOBAL', self.name(e.name))
+        for module, names in e.items:
+            self.emit_op(e.line, 'LOAD_CONST', self.const(-1))
+            self.emit_op(e.line, 'LOAD_CONST', self.const(tuple(names or [])))
+            self.emit_op(e.line, 'IMPORT_NAME', self.name(module))
+            self.emit_op(e.line, 'DUP_TOP')
+            
+            if names is not None:
+                for name in names:
+                    self.emit_op(e.line, 'IMPORT_FROM', self.name(name))
+                    self.emit_op(e.line, 'STORE_GLOBAL', self.name(name))
+            else:
+                self.emit_op(e.line, 'STORE_GLOBAL', self.name(module))
 
     def emit_Block(self, e):
         if len(e.exprs):

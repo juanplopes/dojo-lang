@@ -245,11 +245,26 @@ class CompilerTestCase(unittest.TestCase):
 
     def test_import_module(self):
         math = __import__('math')
-        self.assertEquals([math, math], dojo_compile('[import math, math]')())
+        self.assertEquals([math, math], dojo_compile('[(import math), math]')())
+
+    def test_import_multiple_modules(self):
+        math = __import__('math')
+        collections = __import__('collections')
+        self.assertEquals([collections, math], dojo_compile('[(import math, collections), math]')())
         
     def test_import_module_items(self):
         math = __import__('math')
-        self.assertEquals([math, math.sqrt, math.cos, math.log], dojo_compile('[import math(sqrt, cos, log), sqrt, cos, log]')())
+        self.assertEquals([math, math.sqrt, math.cos, math.log], dojo_compile('[(import math(sqrt, cos, log)), sqrt, cos, log]')())
+
+    def test_import_module_with_no_items(self):
+        collections = __import__('collections')
+        self.assertEquals([collections, False], dojo_compile('[(import collections()), "collections" in globals()]')())
+
+
+    def test_import_multiple_module_items(self):
+        math = __import__('math')
+        collections = __import__('collections')
+        self.assertEquals([collections, math.sqrt, math.cos, math.log], dojo_compile('[(import math(sqrt, cos, log), collections(deque)), sqrt, cos, log]')())
 
     def test_import_then_call(self):
         self.assertEquals(2.0, dojo_compile('import math(sqrt); test=/x=>sqrt(x); test(4)')())

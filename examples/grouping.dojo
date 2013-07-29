@@ -1,0 +1,8 @@
+import sys(stdin), itertools(groupby)
+
+stdin
+|> groupby{}
+|> map{/x=>[x[0], len(list(x[1]))]}
+|> map{print}
+|> list
+
