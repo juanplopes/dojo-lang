@@ -307,7 +307,7 @@ class CompilerTestCase(unittest.TestCase):
         
         self.assertEquals('abc', dojo_compile('if 2+2==4: print() else: "qwe"')(scope))
         self.assertEquals(2, counter[0])
-
+        
     def test_if_else_blocks(self):
         counter = [0]
         def function(): 

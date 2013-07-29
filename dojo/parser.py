@@ -63,10 +63,10 @@ class Parser(TokenStream):
 
     def if_expression(self, ctx):
         if self.next_if('if'):
-            return self.if_test_and_bodies(ctx)
+            return self.if_test_and_bodies(ctx, If)
         return self.yield_expression(ctx)
     
-    def if_test_and_bodies(self, ctx):
+    def if_test_and_bodies(self, ctx, node):
         test = self.expr(ctx)
         self.next(':')
         then_body = self.expr(ctx)
@@ -74,11 +74,11 @@ class Parser(TokenStream):
         if self.next_if('else') and self.next(':'):
             else_body = self.expr(ctx)
         elif self.next_if('elif'):
-            else_body = self.if_test_and_bodies(ctx)
+            else_body = self.if_test_and_bodies(ctx, If)
         else:
             else_body = Block(test.line)
         
-        return If(test.line, test, then_body, else_body)
+        return node(test.line, test, then_body, else_body)
 
     def yield_expression(self, ctx):
         op = self.next_if('yield')
