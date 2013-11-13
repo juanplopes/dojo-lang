@@ -114,7 +114,7 @@ class Parser(TokenStream):
         op = self.next_if('/')
         if op:
             args = self._list_of(lambda: self.next('IDENTIFIER').image, '=>')
-            return self.function_body(op.line, ctx, None, args, self.assignment)
+            return self.function_body(op.line, ctx, None, args, self.function)
 
         op = self.next_if('def')
         if op:
